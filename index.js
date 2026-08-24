@@ -1,6 +1,6 @@
 // ==== HT_Automation — v4.0: Premiere Pro UXP Plugin ====
 // Tab 1: Ảnh + Âm thanh
-// Tab 2: Video + Âm thanh (dùng Hybrid Addon / HTTP Bridge gọi FFmpeg đổi tốc độ video khớp audio)
+// Tab 2: Video + Âm thanh (dùng HTTP Bridge gọi FFmpeg đổi tốc độ video khớp audio)
 
 const { storage } = require("uxp");
 const fs = storage.localFileSystem;
@@ -11,46 +11,8 @@ try {
   console.warn("Module premierepro chưa sẵn sàng:", e.message);
 }
 
-// Addon native (Hybrid Plugin) — cầu nối chạy FFmpeg.exe.
-let ffmpegAddon = null;
-
-function getFfmpegAddonModule() {
-  if (ffmpegAddon && typeof ffmpegAddon.runProcess === "function") {
-    return ffmpegAddon;
-  }
-  const paths = [
-    "ffmpeg-bridge.uxpaddon",
-    "./ffmpeg-bridge.uxpaddon",
-    "./win/x64/ffmpeg-bridge.uxpaddon",
-    "./addons/win/x64/ffmpeg-bridge.uxpaddon",
-    "../win/x64/ffmpeg-bridge.uxpaddon"
-  ];
-  for (const p of paths) {
-    try {
-      const m = require(p);
-      if (m && typeof m.runProcess === "function") {
-        ffmpegAddon = m;
-        return m;
-      }
-      if (m && m.default && typeof m.default.runProcess === "function") {
-        ffmpegAddon = m.default;
-        return m.default;
-      }
-    } catch (err) {}
-  }
-  return ffmpegAddon;
-}
-
 async function runFfmpegProcess(exePath, args) {
-  // 1. Thử dùng Native C++ Addon nếu có
-  const mod = getFfmpegAddonModule();
-  if (mod && typeof mod.runProcess === "function") {
-    try {
-      return mod.runProcess(exePath, args);
-    } catch (e) {}
-  }
-
-  // 2. Local Bridge HTTP Server (chạy ngầm port 19888)
+  // Local Bridge HTTP Server (chạy ngầm port 19888)
   try {
     const response = await fetch("http://127.0.0.1:19888/run", {
       method: "POST",
@@ -65,7 +27,7 @@ async function runFfmpegProcess(exePath, args) {
   } catch (netErr) {
     throw new Error(
       `Lỗi kết nối Server (${netErr.message}).\n` +
-      `👉 Nếu chưa bật Server, hãy bấm đúp 'CHAY_FFMPEG_BRIDGE.bat' trong thư mục dự án.`
+      `👉 Hãy chạy lại bộ cài một click để bật FFmpeg Bridge.`
     );
   }
 }

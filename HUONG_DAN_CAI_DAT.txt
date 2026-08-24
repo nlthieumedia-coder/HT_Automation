@@ -1,20 +1,12 @@
-HT_AUTOMATION 4.0.0 - HUONG DAN CAI DAT WINDOWS X64
-====================================================
+HT_AUTOMATION 4.0.1 - CAI DAT WINDOWS X64
+==========================================
 
-Yeu cau:
-- Windows x64.
-- Adobe Creative Cloud Desktop.
-- Adobe Premiere Pro 26.2 tro len.
+1. Giai nen toan bo HT_Automation_Setup_Windows.zip.
+2. Dong Premiere Pro.
+3. Nhan dup CAI_DAT_MOT_CLICK.bat.
+4. Trong Creative Cloud, chon Install.
+5. Mo lai Premiere Pro.
+6. Vao Window > UXP Plugins > HT_Automation.
 
-Cai dat:
-1. Dong Adobe Premiere Pro neu dang mo.
-2. Nhan dup file com.hieuyt.htautomation_premierepro.ccx.
-3. Chon Install trong Adobe Creative Cloud Desktop.
-4. Chap nhan quyen Administrator neu Windows yeu cau.
-5. Mo Premiere Pro va mo panel HT_Automation.
-
-FFmpeg va native addon da nam san trong bo cai. Khong can cai Git, Node.js,
-UXP Developer Tool, FFmpeg rieng hoac chay script PowerShell.
-
-Neu chuc nang Video + Am thanh khong ket noi duoc FFmpeg, hay lien he nguoi
-phat hanh de kiem tra native addon. HTTP bridge chi la co che du phong.
+Yeu cau: Creative Cloud da dang nhap va Premiere Pro 26.2 tro len.
+Khong can cai Git, Node.js, UXP Developer Tool hoac FFmpeg rieng.
