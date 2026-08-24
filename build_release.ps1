@@ -150,6 +150,25 @@ try {
     Write-Host "SHA-256: $hash"
     Write-Host ""
     Write-Host "May khac chi can nhap dup file .ccx va chon Install." -ForegroundColor Cyan
+
+    $portableDir = Join-Path $distDir "HT_Automation_Setup_Windows"
+    $portableZip = Join-Path $distDir "HT_Automation_Setup_Windows.zip"
+    if (Test-Path -LiteralPath $portableDir) { Remove-Item -LiteralPath $portableDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $portableDir | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $portableDir "installer") | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $portableDir "payload") | Out-Null
+    Copy-Item -LiteralPath $packagePath -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "CAI_DAT_MOT_CLICK.bat") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "installer\install.ps1") -Destination (Join-Path $portableDir "installer")
+    Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall_bridge.ps1") -Destination (Join-Path $portableDir "installer")
+    Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg_bridge_server.ps1") -Destination (Join-Path $portableDir "payload")
+    if (Test-Path -LiteralPath $portableZip) { Remove-Item -LiteralPath $portableZip -Force }
+    Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
+    $portableHash = (Get-FileHash -LiteralPath $portableZip -Algorithm SHA256).Hash
+    Write-Host ""
+    Write-Host "BO CAI MOT CLICK: $portableZip" -ForegroundColor Green
+    Write-Host "SHA-256: $portableHash"
+    Write-Host "May moi: giai nen ZIP, bam dup CAI_DAT_MOT_CLICK.bat." -ForegroundColor Cyan
 } finally {
     $resolvedTempRoot = [System.IO.Path]::GetFullPath($tempRoot)
     $resolvedStage = [System.IO.Path]::GetFullPath($stageDir)

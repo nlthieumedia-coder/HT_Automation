@@ -17,6 +17,7 @@ Thumbs.db
 # Generated installers: publish only the canonical Windows package.
 /dist/*
 !/dist/com.hieuyt.htautomation_premierepro.ccx
+!/dist/HT_Automation_Setup_Windows.zip
 
 # Temporary local inspection/build folders
 /.tmp_*/
