@@ -1,0 +1,32 @@
+{
+  "id": "com.hieuyt.htautomation",
+  "name": "HT_Automation",
+  "version": "4.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": {
+    "app": "premierepro",
+    "minVersion": "26.0.0"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "htAutomationPanel",
+      "label": "HT_Automation",
+      "minimumSize": { "width": 340, "height": 540 },
+      "maximumSize": { "width": 500, "height": 800 },
+      "preferredDockedSize": { "width": 360, "height": 620 },
+      "preferredFloatingSize": { "width": 360, "height": 620 }
+    }
+  ],
+  "addon": {
+    "name": "ffmpeg-bridge.uxpaddon"
+  },
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": {
+      "domains": "all"
+    },
+    "enableAddon": true
+  }
+}

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  body {
+    background-color: #121215;
+    color: #f3f4f6;
+    padding: 14px;
+    font-size: 12px;
+    line-height: 1.4;
+    user-select: none;
+    -webkit-user-select: none;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #141417;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6366f1;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #27272a;
+    width: 100%;
+  }
+
+  .app-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .app-title h2 {
+    font-size: 15px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.3px;
+    margin: 0;
+  }
+
+  .version-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border-radius: 4px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+
+  .connection-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #6b7280;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .status-dot.active {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  }
+
+  .status-dot.error {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: #1c1c21;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .tab-btn:hover {
+    color: #e5e7eb;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .tab-btn.active {
+    color: #ffffff;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+  }
+
+  .tab-panel {
+    display: none;
+  }
+
+  .tab-panel.active {
+    display: block;
+  }
+
+  /* Cards */
+  .card {
+    background: #1c1c21;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #e5e7eb;
+    letter-spacing: 0.2px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-subtitle {
+    font-size: 10px;
+    color: #6b7280;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+
+  /* Input Groups */
+  .folder-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+
+  .folder-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .folder-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #d1d5db;
+    margin-bottom: 4px;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .folder-path {
+    flex: 1;
+    height: 36px;
+    background: #141417;
+    border: 1px solid #27272a;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .folder-path.selected {
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.06);
+  }
+
+  .text-input {
+    flex: 1;
+    height: 36px;
+    background: #141417;
+    border: 1px solid #27272a;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 11px;
+    color: #f3f4f6;
+    outline: none;
+  }
+
+  .text-input:focus {
+    border-color: #6366f1;
+  }
+
+  /* Buttons */
+  .btn {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #3f3f46;
+    background: #27272a;
+    color: #f3f4f6;
+    transition: all 0.15s ease;
+    outline: none;
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: #3f3f46;
+    border-color: #52525b;
+    color: #ffffff;
+  }
+
+  .btn:active {
+    background: #18181b;
+  }
+
+  .btn-primary {
+    height: 40px;
+    font-size: 12px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #f3f4f6;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .btn-grid {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .btn-grid .btn {
+    flex: 1;
+    margin-right: 8px;
+  }
+
+  .btn-grid .btn:last-child {
+    margin-right: 0;
+  }
+
+  .select-control {
+    width: 100%;
+    height: 36px;
+    background: #141417;
+    border: 1px solid #27272a;
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 11px;
+    color: #f3f4f6;
+    outline: none;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+
+  .select-control option {
+    background: #1c1c21;
+    color: #f3f4f6;
+  }
+
+  .badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.08);
+    color: #9ca3af;
+  }
+
+  .badge.success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+
+  .badge.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-icon {
+    height: 24px;
+    padding: 0 8px;
+    font-size: 10px;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid #27272a;
+    color: #6b7280;
+    cursor: pointer;
+  }
+
+  .btn-icon:hover {
+    color: #f3f4f6;
+    border-color: #3f3f46;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Log Box */
+  .log-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #log {
+    background: #0a0a0d;
+    border: 1px solid #27272a;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: Consolas, "Cascadia Code", "Fira Code", monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #d1d5db;
+    height: 140px;
+    max-height: 160px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    touch-action: pan-y;
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="app-title">
+      <h2>HT_Automation</h2>
+      <span class="version-tag">v4.0</span>
+    </div>
+    <div class="connection-status">
+      <div id="statusDot" class="status-dot"></div>
+      <span id="statusText">Premiere UXP</span>
+    </div>
+  </div>
+
+  <!-- Tab Switcher -->
+  <div class="tab-bar">
+    <div id="tabBtnImage" onclick="activateTab('image')" role="button" tabindex="0" class="tab-btn active">🖼️ Ảnh + Âm thanh</div>
+    <div id="tabBtnVideo" onclick="activateTab('video')" role="button" tabindex="0" class="tab-btn">🎞️ Video + Âm thanh</div>
+  </div>
+
+  <!-- Kết nối Premiere & chọn Timeline (dùng chung cho cả 2 tab) -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">🔌 Kết Nối Premiere & Chọn Timeline</span>
+    </div>
+
+    <div class="folder-row">
+      <span class="folder-label">🎬 Chọn Timeline / Sequence</span>
+      <select id="selectSequence" class="select-control">
+        <option value="CREATE_NEW">✨ ➕ Tự động tạo Timeline mới</option>
+      </select>
+    </div>
+
+    <div class="btn-grid">
+      <div id="btnTestConnection" role="button" tabindex="0" class="btn btn-secondary">
+        <span>⚡ Test Kết Nối</span>
+      </div>
+      <div id="btnReloadPanel" onclick="window.location.reload()" role="button" tabindex="0" class="btn btn-secondary" title="Tải lại giao diện Plugin">
+        <span>🔄 Tải Lại Panel</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB: ẢNH + ÂM THANH ================= -->
+  <div id="tabPanelImage" class="tab-panel active">
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📁 Bước 1: Nguồn Dữ Liệu</span>
+      </div>
+
+      <div class="folder-row">
+        <span class="folder-label">🖼️ Thư mục ẢNH</span>
+        <div class="input-group">
+          <div id="pathImageFolder" class="folder-path">Chưa chọn thư mục...</div>
+          <div id="btnPickImageFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <span>📂 Chọn</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="folder-row">
+        <span class="folder-label">🎵 Thư mục ÂM THANH</span>
+        <div class="input-group">
+          <div id="pathAudioFolder" class="folder-path">Chưa chọn thư mục...</div>
+          <div id="btnPickAudioFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <span>📂 Chọn</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔍 Bước 2: Quét & Ghép Cặp</span>
+        <span id="badgeMatchedPairs" class="badge">0 cặp</span>
+      </div>
+      <div id="btnScanFiles" role="button" tabindex="0" class="btn btn-secondary">
+        <span>🔄 Quét File</span>
+      </div>
+      <label id="missingMediaChoice" style="display:none; margin-top:10px; font-size:11px; color:#fbbf24; cursor:pointer; align-items:center; gap:8px;">
+        <input id="allowBuildWithMissing" type="checkbox" />
+        <span>Vẫn dựng timeline khi thiếu file (mục thiếu sẽ để trống)</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🎬 Bước 3: Thao Tác Chính</span>
+      </div>
+      <div id="btnBuildProject" role="button" tabindex="0" class="btn btn-primary">
+        <span>🚀 Dựng Project & Timeline</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= TAB: VIDEO + ÂM THANH ================= -->
+  <div id="tabPanelVideo" class="tab-panel">
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📁 Bước 1: Nguồn Dữ Liệu</span>
+      </div>
+
+      <div class="folder-row">
+        <span class="folder-label">🎞️ Thư mục VIDEO</span>
+        <div class="input-group">
+          <div id="pathVideoFolder" class="folder-path">Chưa chọn thư mục...</div>
+          <div id="btnPickVideoFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <span>📂 Chọn</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="folder-row">
+        <span class="folder-label">🎵 Thư mục ÂM THANH</span>
+        <div class="input-group">
+          <div id="pathVideoAudioFolder" class="folder-path">Chưa chọn thư mục...</div>
+          <div id="btnPickVideoAudioFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <span>📂 Chọn</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">⚙️ Cấu Hình FFmpeg</span>
+        <span id="badgeFfmpegStatus" class="badge">Chưa kiểm tra</span>
+      </div>
+      <div class="card-subtitle">
+        Video sẽ được FFmpeg đổi tốc độ để khớp đúng độ dài audio ghép cặp, đồng thời xoá hoàn toàn âm thanh gốc của video trước khi đưa vào Premiere.
+      </div>
+      <div class="folder-row">
+        <span class="folder-label">Đường dẫn ffmpeg.exe (để trống nếu đã có trong PATH)</span>
+        <div class="input-group">
+          <input id="inputFfmpegPath" class="text-input" type="text" value="" placeholder="Đang xác định bin\\ffmpeg.exe..." />
+          <div id="btnTestFfmpeg" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <span>🧪 Kiểm tra</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔍 Bước 2: Quét & Ghép Cặp</span>
+        <span id="badgeMatchedPairsVideo" class="badge">0 cặp</span>
+      </div>
+      <div id="btnScanFilesVideo" role="button" tabindex="0" class="btn btn-secondary">
+        <span>🔄 Quét File</span>
+      </div>
+      <label id="missingVideoMediaChoice" style="display:none; margin-top:10px; font-size:11px; color:#fbbf24; cursor:pointer; align-items:center; gap:8px;">
+        <input id="allowBuildVideoWithMissing" type="checkbox" />
+        <span>Vẫn dựng timeline khi thiếu file (mục thiếu sẽ để trống)</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🎬 Bước 3: Thao Tác Chính</span>
+      </div>
+      <div class="card-subtitle">
+        Video → track V1 · Âm thanh (từ thư mục Âm thanh) → track A1. Quá trình xử lý FFmpeg từng cặp có thể mất vài giây, theo dõi tiến độ trong Nhật ký bên dưới.
+      </div>
+      <div id="btnBuildProjectVideo" role="button" tabindex="0" class="btn btn-primary">
+        <span>🚀 Dựng Project & Timeline</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Nhật ký Terminal (dùng chung) -->
+  <div class="log-container">
+    <div class="log-header">
+      <span class="card-title">📋 Nhật Ký Hoạt Động</span>
+      <div id="btnClearLog" role="button" tabindex="0" class="btn btn-icon">Xóa log</div>
+    </div>
+    <div id="log">Sẵn sàng thực thi quy trình.</div>
+  </div>
+</div>
+
+<script src="./index.js"></script>
+</body>
+</html>
