@@ -74,6 +74,10 @@ let audioFolder = null;
 let videoFolder = null;
 let videoAudioFolder = null;
 let syncedSubfolderEntry = null;
+let musicFolder = null;
+let musicEntries = [];
+let normalizedMusicFolder = null;
+let overlayEntries = [];
 let bundledFfmpegPath = "ffmpeg";
 
 // Xác định FFmpeg theo thư mục plugin thay vì gắn cứng đường dẫn máy phát triển.
@@ -91,26 +95,19 @@ let bundledFfmpegPath = "ffmpeg";
 // ---- Tab Switcher ----
 function activateTab(tab) {
   const isImage = tab === "image";
-  const btnImg = getEl("tabBtnImage");
-  const btnVid = getEl("tabBtnVideo");
-  const pnlImg = getEl("tabPanelImage");
-  const pnlVid = getEl("tabPanelVideo");
-
-  if (btnImg) btnImg.classList.toggle("active", isImage);
-  if (btnVid) btnVid.classList.toggle("active", !isImage);
-  if (pnlImg) {
-    pnlImg.classList.toggle("active", isImage);
-    pnlImg.style.display = isImage ? "block" : "none";
+  const isVideo = tab === "video";
+  const isPost = tab === "post";
+  const pairs = [
+    [getEl("tabBtnImage"), getEl("tabPanelImage"), isImage],
+    [getEl("tabBtnVideo"), getEl("tabPanelVideo"), isVideo],
+    [getEl("tabBtnPost"), getEl("tabPanelPost"), isPost]
+  ];
+  for (const [button, panel, active] of pairs) {
+    if (button) button.classList.toggle("active", active);
+    if (panel) { panel.classList.toggle("active", active); panel.style.display = active ? "block" : "none"; }
   }
-  if (pnlVid) {
-    pnlVid.classList.toggle("active", !isImage);
-    pnlVid.style.display = isImage ? "none" : "block";
-  }
-
-  log(`👉 Đã chuyển sang Tab: ${isImage ? '🖼️ Ảnh + Âm thanh' : '🎞️ Video + Âm thanh'}`);
-  if (!isImage && typeof autoCheckFfmpeg === "function") {
-    autoCheckFfmpeg(true);
-  }
+  log(`👉 Đã chuyển tab: ${isImage ? "Ảnh + Âm thanh" : (isVideo ? "Video + Âm thanh" : "Hậu kỳ tự động")}`);
+  if ((isVideo || isPost) && typeof autoCheckFfmpeg === "function") autoCheckFfmpeg(true);
 }
 window.activateTab = activateTab;
 
@@ -118,6 +115,8 @@ listen("tabBtnImage", "click", () => activateTab("image"));
 listen("tabBtnVideo", "click", () => activateTab("video"));
 listen("tabBtnImage", "pointerdown", () => activateTab("image"));
 listen("tabBtnVideo", "pointerdown", () => activateTab("video"));
+listen("tabBtnPost", "click", () => activateTab("post"));
+listen("tabBtnPost", "pointerdown", () => activateTab("post"));
 
 listen("btnReloadPanel", "click", () => {
   log("🔄 Đang tải lại giao diện Plugin...");
@@ -489,13 +488,28 @@ async function getSequenceFrameSeconds(sequence) {
   try {
     if (sequence && typeof sequence.getSettings === "function") {
       const settings = await sequence.getSettings();
-      const rate = settings && settings.videoFrameRate;
-      const detected = getSecondsValue(rate);
-      // Premiere trả videoFrameRate dưới dạng TickTime của một frame.
-      if (detected > 0 && detected < 1) frameSeconds = detected;
+      if (settings && typeof settings.getVideoFrameRate === "function") {
+        const frameRate = await settings.getVideoFrameRate();
+        if (frameRate && Number(frameRate.value) > 0) frameSeconds = 1 / Number(frameRate.value);
+      } else {
+        const rate = settings && settings.videoFrameRate;
+        const detected = getSecondsValue(rate);
+        if (detected > 0 && detected < 1) frameSeconds = detected;
+      }
     }
   } catch (e) {}
   return frameSeconds;
+}
+
+async function getSequenceFrameRate(sequence) {
+  try {
+    const settings = await sequence.getSettings();
+    if (settings && typeof settings.getVideoFrameRate === "function") {
+      const rate = await settings.getVideoFrameRate();
+      if (rate && Number(rate.value) > 0) return rate;
+    }
+  } catch (e) {}
+  return ppro.FrameRate.createWithValue(30);
 }
 
 async function getTenFrameDuration(sequence) {
@@ -1304,3 +1318,349 @@ setTimeout(() => {
   const btnTest = getEl("btnTestConnection");
   if (btnTest) btnTest.click();
 }, 200);
+
+// ===== Automated post-production: background music and timed overlays =====
+function parseTimelineInput(value, fps = 30) {
+  const input = String(value == null ? "" : value).trim();
+  if (!input) return 0;
+  if (/^\d+(\.\d+)?$/.test(input)) return Number(input);
+  const p = input.split(":").map(Number);
+  if (p.some((n) => !Number.isFinite(n)) || p.length < 2 || p.length > 4) return NaN;
+  if (p.length === 4) return p[0] * 3600 + p[1] * 60 + p[2] + p[3] / fps;
+  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+  return p[0] * 60 + p[1];
+}
+
+async function getSequenceEndSeconds(sequence) {
+  // Premiere exposes the computed timeline end directly. This is more reliable
+  // than enumerating track collections, especially on 26.2.
+  try {
+    if (sequence && typeof sequence.getEndTime === "function") {
+      const directEnd = getSecondsValue(await sequence.getEndTime());
+      if (directEnd > 0) return directEnd;
+    }
+  } catch (e) {}
+
+  let maximum = 0;
+  for (const kind of ["video", "audio"]) {
+    try {
+      const countMethod = kind === "video" ? "getVideoTrackCount" : "getAudioTrackCount";
+      const trackMethod = kind === "video" ? "getVideoTrack" : "getAudioTrack";
+      const count = typeof sequence[countMethod] === "function" ? await sequence[countMethod]() : 0;
+      for (let i = 0; i < count; i++) {
+        const track = await sequence[trackMethod](i);
+        if (!track || typeof track.getTrackItems !== "function") continue;
+        let items = [];
+        try {
+          const clipType = ppro && ppro.Constants && ppro.Constants.TrackItemType ? ppro.Constants.TrackItemType.CLIP : undefined;
+          items = await track.getTrackItems(clipType, false);
+        } catch (e) { try { items = await track.getTrackItems(); } catch (ignored) {} }
+        for (const item of (items || [])) {
+          try { maximum = Math.max(maximum, getSecondsValue(await item.getEndTime())); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+  }
+  return maximum;
+}
+
+async function ensureChildFolder(parent, name) {
+  try { return await parent.createFolder(name); }
+  catch (e) {
+    const entries = await parent.getEntries();
+    const found = entries.find((it) => !it.isFile && it.name === name);
+    if (found) return found;
+    throw e;
+  }
+}
+
+async function waitForImportedEntry(bin, entry, attempts = 16) {
+  for (let i = 0; i < attempts; i++) {
+    const found = findItemForEntry(await getBinChildren(bin), entry);
+    if (found) return found;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return null;
+}
+
+listen("btnPickMusicFolder", "click", async () => {
+  try {
+    const folder = await fs.getFolder();
+    if (!folder) return;
+    musicFolder = folder;
+    normalizedMusicFolder = null;
+    const extensions = [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"];
+    musicEntries = (await folder.getEntries()).filter((it) => it.isFile && extensions.some((ext) => it.name.toLowerCase().endsWith(ext))).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    getEl("pathMusicFolder").textContent = folder.nativePath;
+    getEl("pathMusicFolder").classList.add("selected");
+    getEl("badgeMusicCount").textContent = `${musicEntries.length} bài`;
+    getEl("musicFileList").textContent = musicEntries.length ? musicEntries.map((e, i) => `${i + 1}. ${e.name}`).join("\n") : "Không tìm thấy file nhạc phù hợp.";
+    log(`🎵 Đã nạp ${musicEntries.length} bài nhạc.`);
+  } catch (err) { log(`❌ Lỗi chọn thư mục nhạc: ${err.message}`); }
+});
+
+async function normalizeMusic(entry, index, targetLufs) {
+  if (!normalizedMusicFolder) normalizedMusicFolder = await ensureChildFolder(musicFolder, "_ht_audio_normalized");
+  const base = entry.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60) || `music_${index + 1}`;
+  const output = await normalizedMusicFolder.createFile(`${String(index + 1).padStart(3, "0")}_${base}_${Math.abs(targetLufs)}LUFS.m4a`, { overwrite: true });
+  const result = await runFfmpegProcess(getFfmpegPath(), ["-y", "-i", entry.nativePath, "-vn", "-af", `loudnorm=I=${targetLufs}:TP=-2:LRA=11`, "-c:a", "aac", "-b:a", "192k", output.nativePath]);
+  if (result.exitCode !== 0) throw new Error((result.stderr || "FFmpeg normalization failed").slice(-700));
+  return output;
+}
+
+listen("btnBuildMusic", "click", async () => {
+  try {
+    if (!musicFolder || !musicEntries.length) throw new Error("Hãy chọn thư mục có ít nhất một bài nhạc.");
+    const target = Number(getEl("inputMusicLufs").value);
+    if (!Number.isFinite(target) || target < -26 || target > -24) throw new Error("Loudness phải nằm trong khoảng -26 đến -24 LUFS.");
+    const audioTrack = Math.max(1, Number(getEl("inputMusicTrack").value || 2) - 1);
+    if (!ppro) ppro = require("premierepro");
+    const project = await ppro.Project.getActiveProject();
+    if (!project) throw new Error("Không có project đang mở.");
+    const sequence = await resolveSequence(project);
+    if (!sequence) throw new Error("Không tìm thấy timeline.");
+    const sequenceFrameRate = await getSequenceFrameRate(sequence);
+    const fps = Number(sequenceFrameRate.value);
+    const start = parseTimelineInput(getEl("inputMusicStart").value, fps);
+    let end = Number(getEl("inputMusicEnd").value) || await getSequenceEndSeconds(sequence);
+    if (!Number.isFinite(start) || start < 0) throw new Error("Thời điểm bắt đầu nhạc không hợp lệ.");
+    if (!end || end <= start) throw new Error("Không xác định được cuối timeline. Hãy nhập ô Kết thúc bằng số giây.");
+    const root = await project.getRootItem();
+    const bin = await ensureBin(project, root, "Background Music");
+    const editor = await ppro.SequenceEditor.getEditor(sequence);
+    const prepared = [];
+    log(`🎚️ Đang chuẩn hóa ${musicEntries.length} bài về ${target} LUFS...`);
+    for (let i = 0; i < musicEntries.length; i++) {
+      const output = await normalizeMusic(musicEntries[i], i, target);
+      await project.importFiles([output.nativePath], true, bin, false);
+      const item = await waitForImportedEntry(bin, output);
+      const duration = await probeDurationSeconds(output.nativePath);
+      if (item && duration > 0) prepared.push({ item, duration });
+      log(`  ✅ ${musicEntries[i].name}`);
+    }
+    if (!prepared.length) throw new Error("Không import được nhạc đã chuẩn hóa.");
+    let cursor = start;
+    let index = 0;
+    const loop = !!getEl("checkMusicLoop").checked;
+    while (cursor < end - 0.001) {
+      const music = prepared[index];
+      const used = Math.min(music.duration, end - cursor);
+      const clip = castToClip(music.item) || music.item;
+      const zero = await ppro.TickTime.createWithSeconds(0);
+      const out = await ppro.TickTime.createWithSeconds(used);
+      if (typeof clip.createSetInOutPointsAction === "function") await runAction(project, () => clip.createSetInOutPointsAction(zero, out), `Trim music ${index + 1}`);
+      else if (typeof clip.createSetOutPointAction === "function") await runAction(project, () => clip.createSetOutPointAction(out), `Trim music ${index + 1}`);
+      const at = await ppro.TickTime.createWithSeconds(cursor);
+      await runAction(project, () => editor.createOverwriteItemAction(music.item, at, 0, audioTrack), `Add music ${index + 1}`);
+      cursor += used;
+      index++;
+      if (index >= prepared.length) { if (!loop) break; index = 0; }
+    }
+    log(`🎉 Đã thêm nhạc nền trên A${audioTrack + 1}, từ ${start.toFixed(2)}s đến ${Math.min(cursor, end).toFixed(2)}s.`);
+  } catch (err) { log(`❌ Lỗi thêm nhạc nền: ${err.message}`); }
+});
+
+function renderOverlayRows() {
+  const host = getEl("overlayRows");
+  if (!host) return;
+  host.innerHTML = "";
+  overlayEntries.forEach((row, index) => {
+    const el = document.createElement("div");
+    el.className = "post-row";
+    el.innerHTML = `<div class="folder-path selected" title="${row.entry.nativePath}">${row.entry.name}</div>
+      <div class="overlay-field"><span class="overlay-field-label">Cách tạo mốc xuất hiện</span><select class="select-control overlay-mode"><option value="manual">Tự nhập số frame</option><option value="auto">Hệ thống tự động</option></select></div>
+      <div class="overlay-field overlay-manual-field"><span class="overlay-field-label">Frame xuất hiện — phân cách bằng dấu phẩy</span><input class="text-input overlay-times" value="${row.times}" placeholder="Ví dụ: 50, 900, 1800"></div>
+      <div class="overlay-field overlay-auto-field"><span class="overlay-field-label">Khoảng lặp tự động (frame)</span><input class="text-input overlay-interval" value="${row.interval}" placeholder="Ví dụ: 900"></div>
+      <div class="overlay-field-pair">
+        <div class="overlay-field"><span class="overlay-field-label">Thời lượng (giây)</span><input class="text-input overlay-duration" value="${row.duration}" placeholder="Theo file"></div>
+        <div class="overlay-field"><span class="overlay-field-label">Vị trí trên màn hình</span><select class="select-control overlay-position"><option value="top-left">Trên trái</option><option value="top">Trên giữa</option><option value="top-right">Trên phải</option><option value="left">Giữa trái</option><option value="center">Chính giữa</option><option value="right">Giữa phải</option><option value="bottom-left">Dưới trái</option><option value="bottom">Dưới giữa</option><option value="bottom-right">Dưới phải</option></select></div>
+      </div>
+      <div class="overlay-field-pair">
+        <div class="overlay-field"><span class="overlay-field-label">Tỷ lệ hiển thị (%)</span><input class="text-input overlay-scale" value="${row.scale}" placeholder="35"></div>
+        <div class="overlay-field"><span class="overlay-field-label">Video track</span><input class="text-input overlay-track" value="${row.track}" placeholder="2 = V2"></div>
+      </div>
+      <div class="overlay-actions"><div class="btn btn-secondary mini-btn overlay-remove">Xóa</div></div>`;
+    el.querySelector(".overlay-mode").value = row.mode;
+    el.querySelector(".overlay-position").value = row.position;
+    const updateOverlayMode = () => {
+      const automatic = row.mode === "auto";
+      el.querySelector(".overlay-manual-field").style.display = automatic ? "none" : "flex";
+      el.querySelector(".overlay-auto-field").style.display = automatic ? "flex" : "none";
+    };
+    el.querySelector(".overlay-mode").addEventListener("change", (e) => { row.mode = e.target.value; updateOverlayMode(); });
+    el.querySelector(".overlay-times").addEventListener("input", (e) => row.times = e.target.value);
+    el.querySelector(".overlay-interval").addEventListener("input", (e) => row.interval = e.target.value);
+    el.querySelector(".overlay-duration").addEventListener("input", (e) => row.duration = e.target.value);
+    el.querySelector(".overlay-position").addEventListener("change", (e) => row.position = e.target.value);
+    el.querySelector(".overlay-scale").addEventListener("input", (e) => row.scale = e.target.value);
+    el.querySelector(".overlay-track").addEventListener("input", (e) => row.track = e.target.value);
+    el.querySelector(".overlay-remove").addEventListener("click", () => { overlayEntries.splice(index, 1); renderOverlayRows(); });
+    updateOverlayMode();
+    host.appendChild(el);
+  });
+  getEl("badgeOverlayCount").textContent = `${overlayEntries.length} overlay`;
+}
+
+listen("btnAddOverlay", "click", async () => {
+  try {
+    const selected = await fs.getFileForOpening({
+      allowMultiple: true,
+      types: ["mp4", "mov", "mkv", "avi", "m4v", "webm"]
+    });
+    if (!selected || (Array.isArray(selected) && selected.length === 0)) return;
+    const files = Array.isArray(selected) ? selected : [selected];
+    const supported = [".mp4", ".mov", ".mkv", ".avi", ".m4v", ".webm"];
+    let added = 0;
+    for (const entry of files) {
+      if (!entry || !supported.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
+        log(`⚠️ Bỏ qua file không hỗ trợ: ${entry && entry.name ? entry.name : "không xác định"}`);
+        continue;
+      }
+      overlayEntries.push({ entry, mode: "manual", times: "900", interval: "900", duration: "", position: "bottom-right", scale: "35", track: "2" });
+      added++;
+    }
+    renderOverlayRows();
+    if (added) log(`🎞 Đã thêm ${added} file vào danh sách overlay.`);
+  } catch (err) { log(`❌ Lỗi chọn overlay: ${err.message}`); }
+});
+
+function getOverlayPositionPoint(position) {
+  const points = {
+    "top-left": [0.14, 0.14], "top": [0.5, 0.14], "top-right": [0.86, 0.14],
+    "left": [0.14, 0.5], "center": [0.5, 0.5], "right": [0.86, 0.5],
+    "bottom-left": [0.14, 0.86], "bottom": [0.5, 0.86], "bottom-right": [0.86, 0.86]
+  };
+  return points[position] || points["bottom-right"];
+}
+
+async function findVideoTrackItemAt(sequence, trackIndex, startSeconds) {
+  const track = await sequence.getVideoTrack(trackIndex);
+  if (!track || typeof track.getTrackItems !== "function") return null;
+  const clipType = ppro.Constants && ppro.Constants.TrackItemType ? ppro.Constants.TrackItemType.CLIP : 1;
+  const items = await track.getTrackItems(clipType, false);
+  let best = null;
+  let bestDistance = Infinity;
+  for (const item of (items || [])) {
+    try {
+      const itemStart = getSecondsValue(await item.getStartTime());
+      const distance = Math.abs(itemStart - startSeconds);
+      if (distance < bestDistance) { best = item; bestDistance = distance; }
+    } catch (e) {}
+  }
+  return bestDistance <= 0.1 ? best : null;
+}
+
+async function applyOverlayMotion(project, trackItem, positionName, scalePercent) {
+  if (!trackItem || typeof trackItem.getComponentChain !== "function") return false;
+  const chain = await trackItem.getComponentChain();
+  if (!chain) return false;
+  let motion = null;
+  const count = await chain.getComponentCount();
+  for (let i = 0; i < count; i++) {
+    const component = await chain.getComponentAtIndex(i);
+    let matchName = "";
+    let displayName = "";
+    try { matchName = String(await component.getMatchName()).toLowerCase(); } catch (e) {}
+    try { displayName = String(await component.getDisplayName()).toLowerCase(); } catch (e) {}
+    if (matchName.includes("motion") || displayName.includes("motion") || displayName.includes("chuyển động")) { motion = component; break; }
+  }
+  if (!motion && count > 0) motion = await chain.getComponentAtIndex(0);
+  if (!motion) return false;
+  const positionParam = await motion.getParam(0);
+  const scaleParam = await motion.getParam(1);
+  const [x, y] = getOverlayPositionPoint(positionName);
+  const point = new ppro.PointF();
+  point.x = x;
+  point.y = y;
+  const positionKey = await positionParam.createKeyframe(point);
+  const scaleKey = await scaleParam.createKeyframe(scalePercent);
+  await runAction(project, () => positionParam.createSetValueAction(positionKey, true), "Set overlay position");
+  await runAction(project, () => scaleParam.createSetValueAction(scaleKey, true), "Set overlay scale");
+  return true;
+}
+
+function syncOverlayRowsFromUI() {
+  const rows = getEl("overlayRows") ? getEl("overlayRows").querySelectorAll(".post-row") : [];
+  for (let i = 0; i < rows.length && i < overlayEntries.length; i++) {
+    const element = rows[i];
+    const data = overlayEntries[i];
+    const read = (selector, fallback) => {
+      const input = element.querySelector(selector);
+      return input ? input.value : fallback;
+    };
+    data.mode = read(".overlay-mode", data.mode);
+    data.times = read(".overlay-times", data.times);
+    data.interval = read(".overlay-interval", data.interval);
+    data.duration = read(".overlay-duration", data.duration);
+    data.position = read(".overlay-position", data.position);
+    data.scale = read(".overlay-scale", data.scale);
+    data.track = read(".overlay-track", data.track);
+  }
+}
+
+listen("btnBuildOverlays", "click", async () => {
+  try {
+    syncOverlayRowsFromUI();
+    if (!overlayEntries.length) throw new Error("Hãy thêm ít nhất một file overlay.");
+    if (!ppro) ppro = require("premierepro");
+    const project = await ppro.Project.getActiveProject();
+    if (!project) throw new Error("Không có project đang mở.");
+    const sequence = await resolveSequence(project);
+    if (!sequence) throw new Error("Không tìm thấy timeline.");
+    const sequenceFrameRate = await getSequenceFrameRate(sequence);
+    const fps = Number(sequenceFrameRate.value);
+    const root = await project.getRootItem();
+    const bin = await ensureBin(project, root, "Overlays");
+    const editor = await ppro.SequenceEditor.getEditor(sequence);
+    const sequenceEnd = await getSequenceEndSeconds(sequence);
+    let occurrenceCount = 0;
+    for (let i = 0; i < overlayEntries.length; i++) {
+      const row = overlayEntries[i];
+      const sourceDuration = await probeDurationSeconds(row.entry.nativePath);
+      const duration = String(row.duration).trim() ? parseTimelineInput(row.duration, fps) : sourceDuration;
+      let startFrames = [];
+      if (row.mode === "auto") {
+        const intervalFrames = Number(row.interval);
+        if (!Number.isFinite(intervalFrames) || intervalFrames <= 0 || !Number.isInteger(intervalFrames)) throw new Error(`Khoảng lặp overlay #${i + 1} phải là số frame nguyên lớn hơn 0.`);
+        if (!sequenceEnd || sequenceEnd <= 0) throw new Error("Không xác định được cuối timeline để tạo mốc tự động.");
+        const lastFrame = Math.floor((sequenceEnd - Math.min(duration, sourceDuration || duration)) * fps);
+        for (let frame = intervalFrames; frame <= lastFrame; frame += intervalFrames) startFrames.push(frame);
+      } else {
+        const frameNumbers = String(row.times || "").split(/[,;\n]+/).map((value) => Number(String(value).trim()));
+        if (frameNumbers.some((frame) => !Number.isFinite(frame) || frame < 0 || !Number.isInteger(frame))) throw new Error(`Danh sách frame overlay #${i + 1} chỉ được chứa số nguyên từ 0 trở lên.`);
+        startFrames = frameNumbers;
+      }
+      const videoTrack = Math.max(1, Number(row.track || 2) - 1);
+      const scale = Number(row.scale || 35);
+      if (!startFrames.length || !Number.isFinite(duration) || duration <= 0) throw new Error(`Không tạo được mốc frame hợp lệ cho overlay #${i + 1}.`);
+      if (!Number.isFinite(scale) || scale <= 0 || scale > 400) throw new Error(`Tỷ lệ overlay #${i + 1} phải từ 1 đến 400%.`);
+      await project.importFiles([row.entry.nativePath], true, bin, false);
+      const raw = await waitForImportedEntry(bin, row.entry);
+      if (!raw) throw new Error(`Không import được ${row.entry.name}.`);
+      const clip = castToClip(raw) || raw;
+      const zero = await ppro.TickTime.createWithSeconds(0);
+      const out = await ppro.TickTime.createWithSeconds(Math.min(duration, sourceDuration || duration));
+      if (typeof clip.createSetInOutPointsAction === "function") await runAction(project, () => clip.createSetInOutPointsAction(zero, out), `Trim overlay ${i + 1}`);
+      else if (typeof clip.createSetOutPointAction === "function") await runAction(project, () => clip.createSetOutPointAction(out), `Trim overlay ${i + 1}`);
+      for (const frameNumber of startFrames) {
+        const at = await ppro.TickTime.createWithFrameAndFrameRate(frameNumber, sequenceFrameRate);
+        await runAction(project, () => editor.createOverwriteItemAction(raw, at, videoTrack, 0), `Add overlay ${i + 1}`);
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        const trackItem = await findVideoTrackItemAt(sequence, videoTrack, getSecondsValue(at));
+        let motionApplied = false;
+        try { motionApplied = await applyOverlayMotion(project, trackItem, row.position, scale); }
+        catch (motionError) { log(`  ⚠️ Motion: ${motionError.message}`); }
+        if (!motionApplied) log(`  ⚠️ Đã chèn nhưng chưa áp dụng được Motion cho mốc ${formatSeconds(at)}s.`);
+        const wholeSeconds = Math.floor(frameNumber / fps);
+        const displayFrames = frameNumber - Math.floor(wholeSeconds * fps);
+        const hh = String(Math.floor(wholeSeconds / 3600)).padStart(2, "0");
+        const mm = String(Math.floor((wholeSeconds % 3600) / 60)).padStart(2, "0");
+        const ss = String(wholeSeconds % 60).padStart(2, "0");
+        const ff = String(displayFrames).padStart(2, "0");
+        log(`  ✅ ${row.entry.name} → V${videoTrack + 1} @ frame ${frameNumber} = ${hh}:${mm}:${ss}:${ff} · ${row.position} · ${scale}%`);
+        occurrenceCount++;
+      }
+    }
+    log(`🎉 Đã thêm ${occurrenceCount} lần xuất hiện overlay bằng Overwrite, timeline không bị ripple.`);
+  } catch (err) { log(`❌ Lỗi thêm overlay: ${err.message}`); }
+});

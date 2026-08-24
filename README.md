@@ -1,4 +1,4 @@
-# HT_Automation 4.0.1
+# HT_Automation 4.3.3
 
 Panel UXP cho Adobe Premiere Pro, tự động ghép media theo số trong tên file và
 xếp tuần tự lên timeline.
@@ -10,6 +10,14 @@ xếp tuần tự lên timeline.
   V1/A1.
 - Ghép cặp theo số đầu tên, số cuối tên hoặc nhóm chữ số đầu tiên trong tên.
 - Video đầu ra nằm trong `_ffmpeg_synced`, dùng H.264, preset `veryfast`, CRF 18.
+- Hậu kỳ tự động: chuẩn hóa nhiều bài nhạc nền trong khoảng -26 đến -24 LUFS,
+  nối hoặc lặp playlist trên track âm thanh do người dùng chọn.
+- Chèn nhiều video overlay tại thời điểm, thời lượng và video track tùy chỉnh bằng
+  Overwrite edit để không làm xê dịch timeline hiện có.
+- Mỗi overlay hỗ trợ nhiều mốc thời gian, 9 vị trí preset trên màn hình và tỷ lệ
+  hiển thị tùy chỉnh.
+- Mốc overlay được nhập bằng số frame hoặc tự động lặp theo khoảng frame đến cuối
+  timeline; plugin tự quy đổi theo frame rate của sequence.
 
 ## Cài trên máy khác
 

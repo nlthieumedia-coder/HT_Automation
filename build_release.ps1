@@ -87,6 +87,27 @@ if (-not (Test-Path -LiteralPath $distDir)) {
     New-Item -ItemType Directory -Path $distDir | Out-Null
 }
 
+# Keep dist unambiguous for transfer: only the current CCX and portable ZIP.
+$resolvedProjectDir = [System.IO.Path]::GetFullPath($projectDir)
+$resolvedDistDir = [System.IO.Path]::GetFullPath($distDir)
+if (-not $resolvedDistDir.StartsWith($resolvedProjectDir, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Thu muc dist nam ngoai project; huy don dep."
+}
+$canonicalDistNames = @(
+    "com.hieuyt.htautomation_premierepro.ccx",
+    "HT_Automation_Setup_Windows.zip"
+)
+Get-ChildItem -LiteralPath $resolvedDistDir -Force | ForEach-Object {
+    if ($canonicalDistNames -notcontains $_.Name) {
+        $stalePath = $_.FullName
+        try {
+            Remove-Item -LiteralPath $stalePath -Recurse -Force -ErrorAction Stop
+        } catch {
+            Write-Warning "Khong xoa duoc muc build cu dang bi khoa: $stalePath"
+        }
+    }
+}
+
 $tempRoot = [System.IO.Path]::GetTempPath()
 $stageDir = Join-Path $tempRoot ("HT_Automation_CCX_" + [Guid]::NewGuid().ToString("N"))
 # Match the filename convention used by Adobe UXP Developer Tool.
@@ -155,6 +176,8 @@ try {
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\install.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall_bridge.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg_bridge_server.ps1") -Destination (Join-Path $portableDir "payload")
+    Copy-Item -LiteralPath (Join-Path $projectDir "HUONG_DAN_CAI_DAT.txt") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "THIRD_PARTY_NOTICES.md") -Destination $portableDir
     if (Test-Path -LiteralPath $portableZip) { Remove-Item -LiteralPath $portableZip -Force }
     Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
     $portableHash = (Get-FileHash -LiteralPath $portableZip -Algorithm SHA256).Hash

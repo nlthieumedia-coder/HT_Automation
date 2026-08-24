@@ -349,7 +349,10 @@
     color: #f3f4f6;
     outline: none;
     cursor: pointer;
-    margin-bottom: 8px;
+    margin: 0;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   .select-control option {
@@ -426,6 +429,29 @@
     touch-action: pan-y;
     box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
   }
+  .post-grid { display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; width:100%; gap:0; margin-top:9px; }
+  .post-grid .folder-row { display:block; flex:0 0 49%; width:49%; min-width:0; margin:0 0 10px 0; padding:0; }
+  .post-grid .folder-label { display:block; width:100%; min-height:16px; margin:0 0 5px 0; padding:0; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .post-grid .text-input { display:block; box-sizing:border-box; width:100%; height:34px; min-height:34px; margin:0; padding:0 9px; }
+  #tabPanelPost .card { padding:14px; overflow:hidden; }
+  .connection-card .folder-row { width:100%; margin:0 0 10px 0; padding:0; }
+  .connection-card .select-control { display:block; width:100%; height:36px; margin:0; }
+  .connection-card .btn-grid { display:flex; justify-content:space-between; width:100%; gap:0; margin:0; padding:0; }
+  .connection-card .btn-grid .btn { flex:0 0 49%; width:49%; height:36px; margin:0; }
+  #tabPanelPost .btn { width:100%; min-height:38px; box-sizing:border-box; }
+  #tabPanelPost .input-group { width:100%; min-width:0; }
+  #tabPanelPost .folder-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .post-row { display:flex; flex-direction:column; width:100%; gap:10px; padding:10px; margin-top:10px; background:#17171b; border:1px solid #303038; border-radius:7px; overflow:hidden; }
+  .post-row .folder-path { width:100%; min-height:34px; box-sizing:border-box; }
+  .overlay-field { display:flex; flex-direction:column; width:100%; min-width:0; gap:5px; }
+  .overlay-field-label { display:block; color:#aeb2bd; font-size:10px; line-height:1.3; }
+  .overlay-field .text-input, .overlay-field .select-control { display:block; width:100%; min-width:0; min-height:34px; box-sizing:border-box; }
+  .overlay-field-pair { display:flex; width:100%; gap:8px; align-items:flex-start; }
+  .overlay-field-pair .overlay-field { flex:1 1 0; width:50%; }
+  .overlay-actions { display:flex; width:100%; justify-content:flex-end; }
+  .overlay-actions .mini-btn { width:84px !important; min-height:32px !important; padding:5px 10px; color:#fca5a5; border-color:#57343a; }
+  .media-list { margin-top:8px; padding:8px; border:1px solid #3d3d3d; border-radius:5px; font-size:11px; color:#cfcfcf; white-space:pre-wrap; max-height:120px; overflow:auto; }
+  @media (max-width:380px) { .post-grid { flex-direction:column; } .post-grid .folder-row { flex-basis:auto; width:100%; min-width:0; } .overlay-field-pair { flex-direction:column; } .overlay-field-pair .overlay-field { width:100%; } }
 </style>
 </head>
 <body>
@@ -435,7 +461,7 @@
   <div class="header">
     <div class="app-title">
       <h2>HT_Automation</h2>
-      <span class="version-tag">v4.0</span>
+      <span class="version-tag">v4.3.3</span>
     </div>
     <div class="connection-status">
       <div id="statusDot" class="status-dot"></div>
@@ -445,12 +471,13 @@
 
   <!-- Tab Switcher -->
   <div class="tab-bar">
+    <div id="tabBtnPost" onclick="activateTab('post')" role="button" tabindex="0" class="tab-btn">🎛 Hậu kỳ</div>
     <div id="tabBtnImage" onclick="activateTab('image')" role="button" tabindex="0" class="tab-btn active">🖼️ Ảnh + Âm thanh</div>
     <div id="tabBtnVideo" onclick="activateTab('video')" role="button" tabindex="0" class="tab-btn">🎞️ Video + Âm thanh</div>
   </div>
 
   <!-- Kết nối Premiere & chọn Timeline (dùng chung cho cả 2 tab) -->
-  <div class="card">
+  <div class="card connection-card">
     <div class="card-header">
       <span class="card-title">🔌 Kết Nối Premiere & Chọn Timeline</span>
     </div>
@@ -603,6 +630,30 @@
   </div>
 
   <!-- Nhật ký Terminal (dùng chung) -->
+  <!-- ================= TAB: HAU KY TU DONG ================= -->
+  <div id="tabPanelPost" class="tab-panel">
+    <div class="card">
+      <div class="card-header"><span class="card-title">🎵 Nhạc nền tự động</span><span id="badgeMusicCount" class="badge">0 bài</span></div>
+      <div class="folder-row"><span class="folder-label">Thư mục nhạc (MP3, WAV, M4A, AAC, FLAC)</span><div class="input-group"><div id="pathMusicFolder" class="folder-path">Chưa chọn thư mục...</div><div id="btnPickMusicFolder" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><span>📂 Chọn</span></div></div></div>
+      <div class="post-grid">
+        <div class="folder-row"><span class="folder-label">Loudness mục tiêu (-26 đến -24 LUFS)</span><input id="inputMusicLufs" class="text-input" type="text" value="-25"></div>
+        <div class="folder-row"><span class="folder-label">Track âm thanh đích (A2 = nhập 2)</span><input id="inputMusicTrack" class="text-input" type="text" value="2"></div>
+        <div class="folder-row"><span class="folder-label">Bắt đầu (giây hoặc HH:MM:SS:FF)</span><input id="inputMusicStart" class="text-input" value="0"></div>
+        <div class="folder-row"><span class="folder-label">Kết thúc (giây; trống = cuối timeline)</span><input id="inputMusicEnd" class="text-input" type="text" placeholder="Tự động"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px"><input id="checkMusicLoop" type="checkbox" checked> Lặp playlist đến hết timeline</label>
+      <div id="musicFileList" class="media-list">Chưa có danh sách nhạc.</div>
+      <div id="btnBuildMusic" role="button" tabindex="0" class="btn btn-primary" style="margin-top:10px"><span>🎵 Chuẩn hóa và thêm nhạc nền</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🎞 Video overlay theo thời gian</span><span id="badgeOverlayCount" class="badge">0 overlay</span></div>
+      <div class="card-subtitle">Nhập số frame cần xuất hiện, ví dụ 900 hoặc 900, 1800, 2700. Chế độ tự động sẽ lặp overlay theo khoảng frame đến cuối timeline.</div>
+      <div id="overlayRows"></div>
+      <div id="btnAddOverlay" role="button" tabindex="0" class="btn btn-secondary" style="margin-top:10px"><span>＋ Chọn file overlay</span></div>
+      <div id="btnBuildOverlays" role="button" tabindex="0" class="btn btn-primary" style="margin-top:8px"><span>🎞 Thêm overlay vào timeline</span></div>
+    </div>
+  </div>
+
   <div class="log-container">
     <div class="log-header">
       <span class="card-title">📋 Nhật Ký Hoạt Động</span>
