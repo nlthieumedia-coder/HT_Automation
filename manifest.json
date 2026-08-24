@@ -2,7 +2,7 @@
   "id": "com.hieuyt.htautomation",
   "name": "HT_Automation",
   "shortname": "HTAuto",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "main": "index.html",
   "manifestVersion": 6,
   "host": {
@@ -46,14 +46,10 @@
       "species": ["pluginList"]
     }
   ],
-  "addon": {
-    "name": "ffmpeg-bridge.uxpaddon"
-  },
   "requiredPermissions": {
     "localFileSystem": "fullAccess",
     "network": {
       "domains": "all"
-    },
-    "enableAddon": true
+    }
   }
 }

@@ -4,7 +4,6 @@ $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $distDir = Join-Path $projectDir "dist"
 $manifestPath = Join-Path $projectDir "manifest.json"
 $ffmpegPath = Join-Path $projectDir "bin\ffmpeg.exe"
-$addonPath = Join-Path $projectDir "win\x64\ffmpeg-bridge.uxpaddon"
 $nodeBuildScript = Join-Path $projectDir "build_ccx.js"
 $buildToolsDir = Join-Path $projectDir ".build-tools"
 
@@ -36,10 +35,6 @@ if (-not (Test-Path -LiteralPath $ffmpegPath -PathType Leaf)) {
 
 if ((Get-Item -LiteralPath $ffmpegPath).Length -lt 1MB) {
     throw "bin\ffmpeg.exe co kich thuoc bat thuong; huy dong goi."
-}
-
-if (-not (Test-Path -LiteralPath $addonPath -PathType Leaf)) {
-    throw "Thieu native addon: win\x64\ffmpeg-bridge.uxpaddon"
 }
 
 if (-not (Test-Path -LiteralPath $nodeBuildScript -PathType Leaf)) {
@@ -74,7 +69,6 @@ $requiredFiles = @(
     "icons\plugin-icon.svg",
     "icons\panel-dark.svg",
     "icons\panel-light.svg",
-    "win\x64\ffmpeg-bridge.uxpaddon",
     "bin\ffmpeg.exe",
     "bin\ffmpeg_bridge_server.ps1",
     "CHAY_FFMPEG_BRIDGE.bat",
