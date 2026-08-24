@@ -16,11 +16,10 @@ Plugin hiện hỗ trợ hai quy trình:
 - UXP Developer Tool để nạp plugin trong quá trình phát triển.
 - Một project Premiere Pro đang mở.
 
-Repository đã kèm theo:
-
-- `bin/ffmpeg.exe`.
-- Native addon tại `addons/win/x64/ffmpeg-bridge.uxpaddon`.
-- HTTP bridge dự phòng tại `bin/ffmpeg_bridge_server.ps1`.
+Repository đã kèm native addon tại `addons/win/x64/ffmpeg-bridge.uxpaddon` và
+HTTP bridge dự phòng tại `bin/ffmpeg_bridge_server.ps1`. Do giới hạn dung lượng
+của GitHub, `bin/ffmpeg.exe` không được commit; chạy `download_ffmpeg.ps1` để tải
+file này khi phát triển hoặc trước khi tạo bộ cài.
 
 ## Quy tắc ghép file
 
@@ -151,6 +150,39 @@ HT_Automation/
 
 Khi thay đổi `manifest.json` hoặc native addon, nên Unload rồi Load lại plugin
 hoàn toàn trong UXP Developer Tool.
+
+## Cài trên máy khác (không cần UXP Developer Tool)
+
+Bản phát hành Windows là một file `.ccx` tự chứa FFmpeg và native addon. Trên
+máy đích chỉ cần Adobe Creative Cloud Desktop và Premiere Pro 26.0 trở lên:
+
+1. Đóng Premiere Pro nếu đang mở.
+2. Nhấp đúp `com.hieuyt.htautomation_premierepro.ccx`.
+3. Chọn **Install** trong trình cài của Adobe và chấp nhận quyền Administrator
+   nếu được yêu cầu.
+4. Mở lại Premiere Pro và mở panel **HT_Automation**.
+
+Máy đích không cần Git, Node.js, FFmpeg riêng, PowerShell script hay UXP
+Developer Tool.
+
+## Tạo bộ cài Windows
+
+Trên máy phát triển, nhấp đúp:
+
+```text
+TAO_BO_CAI.bat
+```
+
+Script sẽ tự tải FFmpeg nếu thiếu, kiểm tra manifest/native addon, chỉ đưa các
+file runtime cần thiết vào gói và tạo kết quả trong `dist/`. Có thể chạy trực
+tiếp bằng PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build_release.ps1
+```
+
+Mỗi bản phát hành cần được thử cài trên một máy Windows sạch trước khi gửi cho
+người dùng.
 
 ## Build native addon
 

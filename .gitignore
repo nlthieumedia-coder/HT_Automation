@@ -14,3 +14,9 @@ Thumbs.db
 .idea/
 *.log
 
+# Generated installers: publish only the canonical Windows package.
+/dist/*
+!/dist/com.hieuyt.htautomation_premierepro.ccx
+
+# Temporary local inspection/build folders
+/.tmp_*/
