@@ -20,3 +20,4 @@ Thumbs.db
 
 # Temporary local inspection/build folders
 /.tmp_*/
+/.build-tools/

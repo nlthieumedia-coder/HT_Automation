@@ -4,7 +4,9 @@ $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $distDir = Join-Path $projectDir "dist"
 $manifestPath = Join-Path $projectDir "manifest.json"
 $ffmpegPath = Join-Path $projectDir "bin\ffmpeg.exe"
-$addonPath = Join-Path $projectDir "addons\win\x64\ffmpeg-bridge.uxpaddon"
+$addonPath = Join-Path $projectDir "win\x64\ffmpeg-bridge.uxpaddon"
+$nodeBuildScript = Join-Path $projectDir "build_ccx.js"
+$buildToolsDir = Join-Path $projectDir ".build-tools"
 
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  TAO BO CAI HT_AUTOMATION CHO WINDOWS X64" -ForegroundColor Cyan
@@ -37,14 +39,42 @@ if ((Get-Item -LiteralPath $ffmpegPath).Length -lt 1MB) {
 }
 
 if (-not (Test-Path -LiteralPath $addonPath -PathType Leaf)) {
-    throw "Thieu native addon: addons\win\x64\ffmpeg-bridge.uxpaddon"
+    throw "Thieu native addon: win\x64\ffmpeg-bridge.uxpaddon"
+}
+
+if (-not (Test-Path -LiteralPath $nodeBuildScript -PathType Leaf)) {
+    throw "Thieu build_ccx.js."
+}
+
+$nodeExe = (Get-Command node.exe -ErrorAction SilentlyContinue).Source
+$npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $nodeExe -and (Test-Path -LiteralPath "C:\Program Files\nodejs\node.exe")) {
+    $nodeExe = "C:\Program Files\nodejs\node.exe"
+}
+if (-not $npmCmd -and (Test-Path -LiteralPath "C:\Program Files\nodejs\npm.cmd")) {
+    $npmCmd = "C:\Program Files\nodejs\npm.cmd"
+}
+if (-not $nodeExe -or -not $npmCmd) {
+    throw "Can Node.js LTS tren may phat trien de tao CCX dung chuan Adobe."
+}
+
+$archiverModule = Join-Path $buildToolsDir "node_modules\archiver"
+if (-not (Test-Path -LiteralPath $archiverModule)) {
+    Write-Host "Dang cai cong cu dong goi archiver vao .build-tools..." -ForegroundColor Yellow
+    & $npmCmd install --prefix $buildToolsDir --no-save --no-audit --no-fund archiver@7.0.1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Khong cai duoc cong cu dong goi archiver."
+    }
 }
 
 $requiredFiles = @(
     "manifest.json",
     "index.html",
     "index.js",
-    "addons\win\x64\ffmpeg-bridge.uxpaddon",
+    "icons\plugin-icon.svg",
+    "icons\panel-dark.svg",
+    "icons\panel-light.svg",
+    "win\x64\ffmpeg-bridge.uxpaddon",
     "bin\ffmpeg.exe",
     "bin\ffmpeg_bridge_server.ps1",
     "CHAY_FFMPEG_BRIDGE.bat",
@@ -86,39 +116,18 @@ try {
         Remove-Item -LiteralPath $packagePath -Force
     }
 
-    Add-Type -AssemblyName System.IO.Compression
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $packageStream = [System.IO.File]::Open(
-        $packagePath,
-        [System.IO.FileMode]::CreateNew,
-        [System.IO.FileAccess]::Write,
-        [System.IO.FileShare]::None
-    )
+    $previousNodePath = $env:NODE_PATH
     try {
-        $zip = New-Object System.IO.Compression.ZipArchive(
-            $packageStream,
-            [System.IO.Compression.ZipArchiveMode]::Create,
-            $false
-        )
-        try {
-            foreach ($relativePath in $requiredFiles) {
-                # ZIP/CCX entry paths must use forward slashes, including on Windows.
-                $entryName = $relativePath.Replace("\", "/")
-                $sourcePath = Join-Path $stageDir $relativePath
-                [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-                    $zip,
-                    $sourcePath,
-                    $entryName,
-                    [System.IO.Compression.CompressionLevel]::Optimal
-                ) | Out-Null
-            }
-        } finally {
-            $zip.Dispose()
+        $env:NODE_PATH = Join-Path $buildToolsDir "node_modules"
+        & $nodeExe $nodeBuildScript $stageDir $packagePath
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cong cu dong goi CCX tra ve ma loi $LASTEXITCODE."
         }
     } finally {
-        $packageStream.Dispose()
+        $env:NODE_PATH = $previousNodePath
     }
 
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
     try {
         $entryNames = @($archive.Entries | ForEach-Object { $_.FullName.Replace("/", "\") })

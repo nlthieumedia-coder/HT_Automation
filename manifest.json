@@ -1,22 +1,49 @@
 {
   "id": "com.hieuyt.htautomation",
   "name": "HT_Automation",
+  "shortname": "HTAuto",
   "version": "4.0.0",
   "main": "index.html",
-  "manifestVersion": 5,
+  "manifestVersion": 6,
   "host": {
     "app": "premierepro",
-    "minVersion": "26.0.0"
+    "minVersion": "26.2.0"
   },
   "entrypoints": [
     {
       "type": "panel",
       "id": "htAutomationPanel",
-      "label": "HT_Automation",
+      "label": { "default": "HT_Automation" },
       "minimumSize": { "width": 340, "height": 540 },
       "maximumSize": { "width": 500, "height": 800 },
       "preferredDockedSize": { "width": 360, "height": 620 },
-      "preferredFloatingSize": { "width": 360, "height": 620 }
+      "preferredFloatingSize": { "width": 360, "height": 620 },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel-dark.svg",
+          "scale": [1, 2],
+          "theme": ["darkest", "dark", "medium"]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/panel-light.svg",
+          "scale": [1, 2],
+          "theme": ["lightest", "light"]
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin-icon.svg",
+      "scale": [1, 2],
+      "theme": ["darkest", "dark", "medium", "lightest", "light", "all"],
+      "species": ["pluginList"]
     }
   ],
   "addon": {

@@ -84,7 +84,7 @@ HT_Automation/
   thường do build nhầm chế độ Debug, hoặc thiếu Visual C++ Redistributable
   trên máy test → rebuild Release, hoặc cài VC++ Redistributable mới nhất.
 - Lỗi require() không tìm thấy module → kiểm tra lại đúng tên file
-  `ffmpeg-bridge.uxpaddon` và đúng đường dẫn `addons/win/x64/`.
+  `ffmpeg-bridge.uxpaddon` và đúng đường dẫn `win/x64/`.
 - Muốn debug bằng breakpoint C++: build Debug tạm thời, attach Visual Studio
   vào tiến trình Premiere Pro đang chạy (theo hướng dẫn "Attach to Process"
   trong tài liệu Hybrid Plugins của Adobe) — nhớ đổi lại Release trước khi

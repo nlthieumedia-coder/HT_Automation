@@ -12,11 +12,11 @@ Plugin hiện hỗ trợ hai quy trình:
 ## Yêu cầu hệ thống
 
 - Windows x64.
-- Adobe Premiere Pro 26.0 trở lên.
+- Adobe Premiere Pro 26.2 trở lên.
 - UXP Developer Tool để nạp plugin trong quá trình phát triển.
 - Một project Premiere Pro đang mở.
 
-Repository đã kèm native addon tại `addons/win/x64/ffmpeg-bridge.uxpaddon` và
+Repository đã kèm native addon tại `win/x64/ffmpeg-bridge.uxpaddon` và
 HTTP bridge dự phòng tại `bin/ffmpeg_bridge_server.ps1`. Do giới hạn dung lượng
 của GitHub, `bin/ffmpeg.exe` không được commit; chạy `download_ffmpeg.ps1` để tải
 file này khi phát triển hoặc trước khi tạo bộ cài.
@@ -131,14 +131,14 @@ HT_Automation/
 
 - Plugin ID: `com.hieuyt.htautomation`.
 - Version: `4.0.0`.
-- `manifestVersion`: `5`.
-- Host: `premierepro`, phiên bản tối thiểu `26.0.0`.
+- `manifestVersion`: `6` (bắt buộc cho Hybrid Plugin).
+- Host: `premierepro`, phiên bản tối thiểu `26.2.0`.
 - Quyền truy cập filesystem: `fullAccess`.
 - Cho phép network và native addon qua `enableAddon`.
 
 ## Cách chạy
 
-1. Mở một project trong Adobe Premiere Pro 26.0 trở lên.
+1. Mở một project trong Adobe Premiere Pro 26.2 trở lên.
 2. Mở UXP Developer Tool và thêm thư mục `HT_Automation`.
 3. Load plugin, sau đó mở panel **HT_Automation** trong Premiere Pro.
 4. Chọn tab và các thư mục media tương ứng.
@@ -154,7 +154,7 @@ hoàn toàn trong UXP Developer Tool.
 ## Cài trên máy khác (không cần UXP Developer Tool)
 
 Bản phát hành Windows là một file `.ccx` tự chứa FFmpeg và native addon. Trên
-máy đích chỉ cần Adobe Creative Cloud Desktop và Premiere Pro 26.0 trở lên:
+máy đích chỉ cần Adobe Creative Cloud Desktop và Premiere Pro 26.2 trở lên:
 
 1. Đóng Premiere Pro nếu đang mở.
 2. Nhấp đúp `com.hieuyt.htautomation_premierepro.ccx`.
@@ -174,8 +174,9 @@ TAO_BO_CAI.bat
 ```
 
 Script sẽ tự tải FFmpeg nếu thiếu, kiểm tra manifest/native addon, chỉ đưa các
-file runtime cần thiết vào gói và tạo kết quả trong `dist/`. Có thể chạy trực
-tiếp bằng PowerShell:
+file runtime cần thiết vào gói và tạo kết quả trong `dist/`. Máy phát triển cần
+Node.js LTS; dependency đóng gói được cài cục bộ vào `.build-tools` và không đi
+vào plugin. Có thể chạy trực tiếp bằng PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build_release.ps1
@@ -195,7 +196,7 @@ trong:
 Output cần được đặt tại:
 
 ```text
-addons/win/x64/ffmpeg-bridge.uxpaddon
+win/x64/ffmpeg-bridge.uxpaddon
 ```
 
 ## Giới hạn hiện tại

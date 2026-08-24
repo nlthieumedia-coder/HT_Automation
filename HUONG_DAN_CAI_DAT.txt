@@ -4,7 +4,7 @@ HT_AUTOMATION 4.0.0 - HUONG DAN CAI DAT WINDOWS X64
 Yeu cau:
 - Windows x64.
 - Adobe Creative Cloud Desktop.
-- Adobe Premiere Pro 26.0 tro len.
+- Adobe Premiere Pro 26.2 tro len.
 
 Cai dat:
 1. Dong Adobe Premiere Pro neu dang mo.
