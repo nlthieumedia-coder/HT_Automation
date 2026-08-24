@@ -151,9 +151,8 @@ try {
     Write-Host ""
     Write-Host "May khac chi can nhap dup file .ccx va chon Install." -ForegroundColor Cyan
 
-    $portableDir = Join-Path $distDir "HT_Automation_Setup_Windows"
+    $portableDir = Join-Path $tempRoot ("HT_Automation_Setup_" + [Guid]::NewGuid().ToString("N"))
     $portableZip = Join-Path $distDir "HT_Automation_Setup_Windows.zip"
-    if (Test-Path -LiteralPath $portableDir) { Remove-Item -LiteralPath $portableDir -Recurse -Force }
     New-Item -ItemType Directory -Path $portableDir | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $portableDir "installer") | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $portableDir "payload") | Out-Null
@@ -169,6 +168,7 @@ try {
     Write-Host "BO CAI MOT CLICK: $portableZip" -ForegroundColor Green
     Write-Host "SHA-256: $portableHash"
     Write-Host "May moi: giai nen ZIP, bam dup CAI_DAT_MOT_CLICK.bat." -ForegroundColor Cyan
+    Remove-Item -LiteralPath $portableDir -Recurse -Force
 } finally {
     $resolvedTempRoot = [System.IO.Path]::GetFullPath($tempRoot)
     $resolvedStage = [System.IO.Path]::GetFullPath($stageDir)
