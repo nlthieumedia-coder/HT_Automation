@@ -1,4 +1,10 @@
-# HT_Automation 5.7.8
+# HT_Automation 5.7.9
+
+## Sửa cài đặt UXP 5.7.9
+
+- Đăng ký `htAutomationPanel` bằng lifecycle `entrypoints.setup()` của UXP.
+- Cài trực tiếp vào thư mục fallback hệ thống mà Premiere quét, không cần Creative Cloud, UPIA hay UXP Developer Tool.
+- Bộ cài tự xin quyền Administrator và dọn các bản sideload AppData cũ trùng ID.
 
 ## Cấu trúc thư mục
 

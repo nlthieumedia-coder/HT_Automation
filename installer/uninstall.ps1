@@ -27,9 +27,9 @@ $desktopUpdater = Join-Path ([Environment]::GetFolderPath("Desktop")) "CAP_NHAT_
 if (Test-Path -LiteralPath $desktopUpdater -PathType Leaf) { Remove-Item -LiteralPath $desktopUpdater -Force }
 
 Write-Host "Dang xoa plugin UXP HT_Automation..." -ForegroundColor Cyan
-$externalRoot = [System.IO.Path]::GetFullPath((Join-Path $env:APPDATA "Adobe\UXP\Plugins\External"))
-$roamingRoot = [System.IO.Path]::GetFullPath($env:APPDATA)
-if (-not $externalRoot.StartsWith($roamingRoot, [StringComparison]::OrdinalIgnoreCase)) {
+$externalRoot = [System.IO.Path]::GetFullPath((Join-Path ${env:CommonProgramFiles} "Adobe\UXP\Plugins\External"))
+$commonFilesRoot = [System.IO.Path]::GetFullPath(${env:CommonProgramFiles})
+if (-not $externalRoot.StartsWith($commonFilesRoot, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Duong dan UXP khong an toan; huy go cai dat."
 }
 if (Test-Path -LiteralPath $externalRoot -PathType Container) {

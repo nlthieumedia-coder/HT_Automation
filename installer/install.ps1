@@ -234,14 +234,14 @@ if (-not $ready) { throw "Khong khoi dong duoc FFmpeg Bridge dung phien ban $exp
 
 Write-Host "FFmpeg Bridge $expectedBridgeVersion va Whisper multilingual da san sang." -ForegroundColor Green
 
-# Sideload the unpacked UXP plugin into the per-user External directory. Premiere
-# scans this location at startup, so Creative Cloud Desktop and UPIA are optional.
+# Install into Premiere's system fallback folder. UPIC scans this location at
+# startup without Creative Cloud Desktop, UPIA, or a user PluginsInfo record.
 Write-Host "Dang cai plugin UXP truc tiep (khong can Creative Cloud)..." -ForegroundColor Cyan
-$roamingRoot = [System.IO.Path]::GetFullPath($env:APPDATA)
-$externalRoot = [System.IO.Path]::GetFullPath((Join-Path $roamingRoot "Adobe\UXP\Plugins\External"))
+$commonFilesRoot = [System.IO.Path]::GetFullPath(${env:CommonProgramFiles})
+$externalRoot = [System.IO.Path]::GetFullPath((Join-Path $commonFilesRoot "Adobe\UXP\Plugins\External"))
 $pluginId = "com.hieuyt.htautomation"
 $pluginTarget = [System.IO.Path]::GetFullPath((Join-Path $externalRoot $pluginId))
-if (-not $externalRoot.StartsWith($roamingRoot, [StringComparison]::OrdinalIgnoreCase) -or
+if (-not $externalRoot.StartsWith($commonFilesRoot, [StringComparison]::OrdinalIgnoreCase) -or
     -not $pluginTarget.StartsWith($externalRoot, [StringComparison]::OrdinalIgnoreCase) -or
     [System.IO.Path]::GetFileName($pluginTarget) -ne $pluginId) {
     throw "Duong dan cai plugin UXP khong an toan; huy cai dat."
@@ -273,6 +273,15 @@ try {
     if (Test-Path -LiteralPath $pluginBackup) { Remove-Item -LiteralPath $pluginBackup -Recurse -Force -ErrorAction SilentlyContinue }
 }
 Write-Host "Da cai plugin vao: $pluginTarget" -ForegroundColor Green
+
+# Remove obsolete per-user sideload copies so Premiere sees only one plugin ID.
+$legacyExternalRoot = Join-Path $env:APPDATA "Adobe\UXP\Plugins\External"
+foreach ($legacyId in @("com.hieuyt.htautomation", "com.hieuyt.htstudio")) {
+    $legacyTarget = Join-Path $legacyExternalRoot $legacyId
+    if (Test-Path -LiteralPath $legacyTarget -PathType Container) {
+        Remove-Item -LiteralPath $legacyTarget -Recurse -Force
+    }
+}
 
 $updaterSource = Join-Path $packageRootPath "installer\update.ps1"
 if (Test-Path -LiteralPath $updaterSource -PathType Leaf) {

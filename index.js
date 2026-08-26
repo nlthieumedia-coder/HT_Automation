@@ -2,7 +2,7 @@
 // Tab 1: Ảnh + Âm thanh
 // Tab 2: Video + Âm thanh (dùng HTTP Bridge gọi FFmpeg đổi tốc độ video khớp audio)
 
-const { storage } = require("uxp");
+const { storage, entrypoints } = require("uxp");
 const fs = storage.localFileSystem;
 let ppro = null;
 try {
@@ -2575,3 +2575,15 @@ async function handleBuildSubtitle() {
     button.removeAttribute("disabled");
   }
 }
+
+// Register the panel declared in manifest.json with Premiere's UXP runtime.
+// The existing HTML document owns the UI, so no create/show DOM work is needed.
+entrypoints.setup({
+  panels: {
+    htAutomationPanel: {
+      show() {},
+      hide() {},
+      destroy() {}
+    }
+  }
+});

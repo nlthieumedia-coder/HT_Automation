@@ -2,7 +2,7 @@ param([string]$Repository = "nlthieumedia-coder/HT_Automation")
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$pluginManifest = Join-Path $env:APPDATA "Adobe\UXP\Plugins\External\com.hieuyt.htautomation\manifest.json"
+$pluginManifest = Join-Path ${env:CommonProgramFiles} "Adobe\UXP\Plugins\External\com.hieuyt.htautomation\manifest.json"
 $currentVersion = [version]"0.0.0"
 if (Test-Path -LiteralPath $pluginManifest -PathType Leaf) {
     try { $currentVersion = [version]((Get-Content -LiteralPath $pluginManifest -Raw -Encoding UTF8 | ConvertFrom-Json).version) } catch {}
