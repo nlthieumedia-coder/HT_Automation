@@ -9,4 +9,6 @@ foreach ($connection in $connections) {
 }
 $runtimeDir = Join-Path $env:LOCALAPPDATA "HT_Automation\Bridge"
 if (Test-Path -LiteralPath $runtimeDir) { Remove-Item -LiteralPath $runtimeDir -Recurse -Force }
-Write-Host "Da go FFmpeg Bridge cua HT_Automation."
+$whisperDir = Join-Path $env:LOCALAPPDATA "HT_Automation\Whisper"
+if (Test-Path -LiteralPath $whisperDir) { Remove-Item -LiteralPath $whisperDir -Recurse -Force }
+Write-Host "Da go FFmpeg Bridge va Whisper cua HT_Automation."

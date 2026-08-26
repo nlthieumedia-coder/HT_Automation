@@ -3,28 +3,59 @@
 <head>
 <meta charset="UTF-8">
 <style>
+  :root {
+    --color-bg: #181818;
+    --color-surface: #232323;
+    --color-surface-raised: #2b2b2b;
+    --color-surface-hover: #343434;
+    --color-field: #1d1d1d;
+    --color-border: #3b3b3b;
+    --color-border-strong: #505050;
+    --color-text: #f0f0f0;
+    --color-text-muted: #adadad;
+    --color-text-subtle: #7f7f7f;
+    --color-primary: #7667e8;
+    --color-primary-hover: #8577f2;
+    --color-primary-pressed: #6657d5;
+    --color-success: #45b97c;
+    --color-warning: #e2a84a;
+    --color-danger: #df6969;
+    --focus-ring: 0 0 0 2px rgba(118, 103, 232, 0.35);
+    --radius-sm: 4px;
+    --radius-md: 7px;
+    --radius-lg: 10px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --control-height: 36px;
+  }
   * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
   }
 
   html {
     height: 100%;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   body {
-    background-color: #121215;
-    color: #f3f4f6;
+    background-color: var(--color-bg);
+    color: var(--color-text);
     padding: 14px;
     font-size: 12px;
     line-height: 1.4;
     user-select: none;
     -webkit-user-select: none;
-    min-height: 100vh;
+    height: 100%;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scroll-behavior: auto;
   }
 
   /* Custom Scrollbar */
@@ -51,6 +82,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+    contain: layout style;
   }
 
   /* Header */
@@ -73,9 +105,7 @@
   .app-title h2 {
     font-size: 15px;
     font-weight: 700;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--color-text);
     letter-spacing: -0.3px;
     margin: 0;
   }
@@ -119,16 +149,21 @@
   /* Tabs */
   .tab-bar {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: 6px;
     margin-bottom: 14px;
-    background: #1c1c21;
-    border: 1px solid #27272a;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 4px;
   }
 
   .tab-btn {
-    flex: 1;
+    flex: 1 1 0;
+    width: auto;
+    max-width: none;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -137,7 +172,7 @@
     border-radius: 6px;
     font-size: 11px;
     font-weight: 600;
-    color: #9ca3af;
+    color: var(--color-text-muted);
     cursor: pointer;
     transition: all 0.15s ease;
     user-select: none;
@@ -145,14 +180,14 @@
   }
 
   .tab-btn:hover {
-    color: #e5e7eb;
-    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text);
+    background: var(--color-surface-hover);
   }
 
   .tab-btn.active {
     color: #ffffff;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+    background: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
   }
 
   .tab-panel {
@@ -161,18 +196,19 @@
 
   .tab-panel.active {
     display: block;
+    contain: layout style;
   }
 
   /* Cards */
   .card {
-    background: #1c1c21;
-    border: 1px solid #27272a;
-    border-radius: 8px;
-    padding: 12px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
     margin-bottom: 12px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
   }
 
   .card-header {
@@ -185,7 +221,7 @@
   .card-title {
     font-size: 11px;
     font-weight: 700;
-    color: #e5e7eb;
+    color: var(--color-text);
     letter-spacing: 0.2px;
     display: flex;
     align-items: center;
@@ -197,7 +233,7 @@
 
   .card-subtitle {
     font-size: 10px;
-    color: #6b7280;
+    color: var(--color-text-muted);
     margin-bottom: 10px;
     line-height: 1.5;
   }
@@ -216,7 +252,7 @@
   .folder-label {
     font-size: 11px;
     font-weight: 600;
-    color: #d1d5db;
+    color: var(--color-text-muted);
     margin-bottom: 4px;
   }
 
@@ -230,39 +266,43 @@
   .folder-path {
     flex: 1;
     height: 36px;
-    background: #141417;
-    border: 1px solid #27272a;
+    background: var(--color-field);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     display: flex;
     align-items: center;
     padding: 0 10px;
     font-size: 11px;
-    color: #9ca3af;
+    color: var(--color-text-subtle);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .folder-path.selected {
-    color: #34d399;
-    border-color: rgba(16, 185, 129, 0.4);
-    background: rgba(16, 185, 129, 0.06);
+    color: var(--color-success);
+    border-color: rgba(69, 185, 124, 0.5);
+    background: rgba(69, 185, 124, 0.07);
   }
 
   .text-input {
     flex: 1;
     height: 36px;
-    background: #141417;
-    border: 1px solid #27272a;
+    background: var(--color-field);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     padding: 0 10px;
     font-size: 11px;
-    color: #f3f4f6;
+    color: var(--color-text);
     outline: none;
+    margin: 0;
+    width: 100%;
+    min-width: 0;
   }
 
   .text-input:focus {
-    border-color: #6366f1;
+    border-color: var(--color-primary);
+    box-shadow: var(--focus-ring);
   }
 
   /* Buttons */
@@ -278,9 +318,9 @@
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    border: 1px solid #3f3f46;
-    background: #27272a;
-    color: #f3f4f6;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface-raised);
+    color: var(--color-text);
     transition: all 0.15s ease;
     outline: none;
     user-select: none;
@@ -289,38 +329,38 @@
   }
 
   .btn:hover {
-    background: #3f3f46;
-    border-color: #52525b;
+    background: var(--color-surface-hover);
+    border-color: #626262;
     color: #ffffff;
   }
 
   .btn:active {
-    background: #18181b;
+    background: var(--color-field);
   }
 
   .btn-primary {
     height: 40px;
     font-size: 12px;
-    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+    background: var(--color-primary);
     color: #ffffff;
     border: none;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
   }
 
   .btn-primary:hover {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #c026d3 100%);
-    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+    background: var(--color-primary-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.34);
   }
 
   .btn-secondary {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #f3f4f6;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
   }
 
   .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.28);
+    background: var(--color-surface-hover);
+    border-color: #626262;
   }
 
   .btn-grid {
@@ -341,12 +381,12 @@
   .select-control {
     width: 100%;
     height: 36px;
-    background: #141417;
-    border: 1px solid #27272a;
+    background: var(--color-field);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     padding: 0 10px;
     font-size: 11px;
-    color: #f3f4f6;
+    color: var(--color-text);
     outline: none;
     cursor: pointer;
     margin: 0;
@@ -451,17 +491,175 @@
   .overlay-actions { display:flex; width:100%; justify-content:flex-end; }
   .overlay-actions .mini-btn { width:84px !important; min-height:32px !important; padding:5px 10px; color:#fca5a5; border-color:#57343a; }
   .media-list { margin-top:8px; padding:8px; border:1px solid #3d3d3d; border-radius:5px; font-size:11px; color:#cfcfcf; white-space:pre-wrap; max-height:120px; overflow:auto; }
+  .icon { display:none; width:16px; height:16px; flex:0 0 16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .icon.icon-sm { width:14px; height:14px; flex-basis:14px; }
+  .icon.icon-lg { width:18px; height:18px; flex-basis:18px; }
+  .btn:focus-visible, .tab-btn:focus-visible, .text-input:focus-visible, .select-control:focus-visible, input[type="checkbox"]:focus-visible { outline:none; box-shadow:var(--focus-ring); }
+  .btn.disabled, .btn[disabled], .btn:disabled { opacity:.45; cursor:not-allowed; pointer-events:none; box-shadow:none; }
+  #btnBuildSubtitle.is-running { opacity:.72; cursor:wait; pointer-events:auto; }
+  .btn-primary:active { background:var(--color-primary-pressed); }
+  .select-control:focus { border-color:var(--color-primary); box-shadow:var(--focus-ring); }
+  input[type="checkbox"] { width:15px; height:15px; accent-color:var(--color-primary); cursor:pointer; }
+  .badge { border:1px solid transparent; border-radius:999px; padding:3px 8px; background:var(--color-surface-raised); color:var(--color-text-muted); }
+  .badge.success { background:rgba(69,185,124,.12); color:#71d69c; border-color:rgba(69,185,124,.3); }
+  .badge.warning { background:rgba(226,168,74,.12); color:#efbd6e; border-color:rgba(226,168,74,.3); }
+  .badge.error { background:rgba(223,105,105,.12); color:#f08b8b; border-color:rgba(223,105,105,.3); }
+  .alert { display:flex; gap:8px; padding:10px 12px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface-raised); color:var(--color-text-muted); }
+  .alert.success { border-color:rgba(69,185,124,.35); background:rgba(69,185,124,.08); color:#8bd9ad; }
+  .alert.warning { border-color:rgba(226,168,74,.35); background:rgba(226,168,74,.08); color:#efc77f; }
+  .alert.error { border-color:rgba(223,105,105,.35); background:rgba(223,105,105,.08); color:#ef9999; }
+  .progress { width:100%; height:6px; overflow:visible; border-radius:999px; background:var(--color-field); }
+  .progress-bar { height:100%; width:0; border-radius:0; background:var(--color-primary); transition:none; }
+  .section-icon { color:var(--color-text-muted); }
+  .tab-btn .icon { opacity:.85; }
+  .tab-btn.active .icon { opacity:1; }
+  .tab-btn { min-width:0; }
+  .tab-btn span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tab-bar .tab-btn .icon { display:none; }
+  .card-header .card-title { min-width:0; flex:1 1 auto; }
+  .card-header .badge { flex:0 1 auto; max-width:55%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-left:8px; }
+  .input-group > .folder-path, .input-group > .text-input { min-width:0; }
+  .folder-label, .overlay-field-label { letter-spacing:.05px; }
+  .text-input::placeholder { color:var(--color-text-subtle); opacity:1; }
+  .media-list { background:var(--color-field); border-color:var(--color-border); color:var(--color-text-muted); border-radius:var(--radius-md); }
+  .post-row { background:var(--color-field); border-color:var(--color-border); border-radius:var(--radius-md); }
+  .log-container { padding-top:4px; }
+  #log { background:#111; border-color:var(--color-border); color:#cfcfcf; box-shadow:none; }
+  .connection-card { flex-direction:row !important; align-items:flex-end; gap:8px; padding:8px 10px; }
+  .connection-card .card-header, .connection-card .folder-label { display:none; }
+  .connection-card .folder-row { flex:1 1 auto !important; width:auto !important; min-width:0; margin:0 !important; }
+  .connection-card .btn-grid { flex:0 0 152px !important; width:152px !important; }
+  .connection-card .btn-grid .btn { height:36px; font-size:10px; }
+  .dashboard-welcome, .settings-heading { margin-bottom:10px; }
+  .dashboard-title { color:var(--color-text); font-size:14px; font-weight:700; }
+  .dashboard-actions { display:flex; flex-wrap:wrap; gap:8px; }
+  .action-tile { display:flex; flex-direction:column; justify-content:center; flex:1 1 46%; min-width:140px; min-height:68px; padding:10px 12px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface); cursor:pointer; }
+  .action-tile:hover, .action-tile:focus { border-color:var(--color-primary); background:var(--color-surface-raised); outline:none; }
+  .action-title { color:var(--color-text); font-size:12px; font-weight:700; margin-bottom:3px; }
+  .action-desc { color:var(--color-text-muted); font-size:10px; line-height:1.35; }
+  .system-strip { display:flex; justify-content:space-between; gap:6px; margin-top:10px; padding:8px 10px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-field); color:var(--color-text-muted); font-size:10px; }
+  .system-strip span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .system-strip b { color:var(--color-text); font-weight:600; }
+  .mode-switch { display:flex; flex-direction:row; width:100%; padding:3px; gap:3px; margin-bottom:10px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-field); }
+  .mode-btn { flex:1 1 50%; min-width:0; height:32px; display:flex; align-items:center; justify-content:center; border-radius:5px; color:var(--color-text-muted); font-size:11px; font-weight:600; cursor:pointer; }
+  .mode-btn.active { color:#fff; background:var(--color-primary); }
+  .post-mode-panel { display:none; }
+  .post-mode-panel.active { display:block; }
+  #settingsTechnical > .card, #settingsTechnical > .folder-row { width:100%; margin:0 0 10px 0; padding:16px; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); overflow:hidden; }
+  #settingsTechnical > .folder-row .input-group { width:100%; min-width:0; }
+  #settingsTechnical > .folder-row .folder-path { min-width:0; }
+  #settingsTechnical > .folder-row:last-child { margin-bottom:12px; }
+  .settings-status-row { display:flex; align-items:center; justify-content:space-between; min-height:34px; border-top:1px solid var(--color-border); color:var(--color-text-muted); }
+  .settings-status-row:first-of-type { border-top:0; }
+  .log-actions { display:flex; gap:4px; }
+  .log-container.collapsed #log { display:none; }
+  .log-container.collapsed { padding:7px 0 2px; }
+  .log-container.collapsed .log-header { min-height:26px; }
+  .workflow-step { margin-top:10px; padding-top:12px; border-top:1px solid var(--color-border); }
+  .workflow-step:first-of-type { margin-top:0; }
+  .step-heading { display:flex; align-items:center; gap:7px; margin-bottom:9px; color:var(--color-text); font-size:11px; font-weight:700; }
+  .step-number { display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:999px; background:var(--color-surface-raised); color:var(--color-text-muted); font-size:10px; }
+  .empty-state { display:flex; flex-direction:column; align-items:center; gap:9px; padding:14px; border:1px dashed var(--color-border-strong); border-radius:var(--radius-lg); color:var(--color-text-muted); text-align:center; }
+  .empty-state .btn { width:120px; }
+  .scan-summary { align-items:center; flex-wrap:nowrap; gap:9px; min-height:48px; padding:7px 9px 7px 11px; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-field); white-space:nowrap; }
+  .scan-count { flex:0 0 auto; color:var(--color-text); font-size:11px; font-weight:700; line-height:1; }
+  .scan-duration { flex:0 0 42px; width:42px; color:var(--color-text-muted); font-family:Consolas, "Cascadia Code", monospace; font-size:10px; font-variant-numeric:tabular-nums; text-align:center; line-height:1; }
+  .scan-detail { flex:1 1 auto; min-width:0; margin:0; color:var(--color-text-muted); font-size:10px; line-height:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .scan-summary .scan-action { flex:0 0 72px; width:72px; height:30px; padding:0 8px; margin:0; }
+  .inline-validation { margin-top:8px; padding:8px 10px; border:1px solid rgba(223,105,105,.4); border-radius:var(--radius-md); background:rgba(223,105,105,.08); color:#ef9999; font-size:10px; }
+  .task-status { margin:8px 0; padding:10px 12px; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-surface); }
+  .task-status-top { display:flex; justify-content:space-between; margin-bottom:7px; color:var(--color-text); font-size:11px; font-weight:600; }
+  .task-status-actions { display:flex; align-items:center; gap:8px; }
+  .task-status-actions .btn { width:72px; height:24px; padding:0 7px; color:var(--color-text-muted); }
+  .task-status.paused { border-color:rgba(226,168,74,.45); }
+  .task-status.paused .progress-bar { background:var(--color-warning); }
+  .task-detail { margin-top:6px; color:var(--color-text-muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #resultAlert { margin:8px 0; }
+  .subtitle-editor-card { padding-bottom:12px; }
+  .editor-toolbar { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; margin-bottom:9px; }
+  .editor-toolbar .btn { width:auto; min-width:92px; height:32px; }
+  .editor-toolbar .btn-primary { min-width:138px; font-size:11px; }
+  .editor-toolbar .editor-format { flex:0 0 72px; width:72px; height:32px; }
+  .editor-badges { display:flex; align-items:center; gap:5px; }
+  .editor-tools-row { display:flex; align-items:center; gap:6px; margin-bottom:9px; }
+  .editor-tools-row .text-input { height:32px; }
+  .editor-tools-row .btn { flex:0 0 84px; width:84px; height:32px; padding:0 7px; }
+  .editor-tools-row .select-control { flex:0 0 105px; width:105px; height:32px; }
+  .glossary-row { display:flex; align-items:center; gap:6px; margin-bottom:9px; }
+  .glossary-row .btn { flex:0 0 auto; width:auto; min-width:112px; height:32px; padding:0 8px; }
+  .caption-style-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:7px; margin:0 0 9px; padding:9px; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-field); }
+  .caption-style-field { display:flex; flex-direction:column; gap:4px; flex:1 1 90px; min-width:72px; }
+  .caption-style-field.wide { flex-basis:130px; }
+  .caption-style-label { font-size:10px; color:var(--color-text-muted); white-space:nowrap; }
+  .caption-style-row .text-input, .caption-style-row .select-control { width:100%; height:32px; min-height:32px; }
+  .caption-style-row .caption-style-action { flex:0 0 auto; width:auto; min-width:96px; height:32px; }
+  .subtitle-editor-rows { max-height:300px; overflow-y:auto; border:1px solid var(--color-border); border-radius:var(--radius-lg); background:var(--color-field); }
+  .subtitle-edit-row { display:flex; align-items:flex-start; gap:8px; padding:8px 9px; border-bottom:1px solid var(--color-border); }
+  .subtitle-edit-row:last-child { border-bottom:0; }
+  .subtitle-edit-index { flex:0 0 26px; padding-top:6px; color:var(--color-text-subtle); font-size:10px; text-align:center; }
+  .subtitle-edit-time { display:flex; flex-direction:column; flex:0 0 92px; gap:4px; }
+  .subtitle-time-input { width:92px; height:27px; margin:0; padding:0 5px; border:1px solid var(--color-border); border-radius:4px; outline:none; background:var(--color-surface); color:var(--color-text-muted); font-family:Consolas, "Cascadia Code", monospace; font-size:9px; }
+  .subtitle-time-input:focus { border-color:var(--color-primary); }
+  .subtitle-time-input.invalid { border-color:var(--color-danger); }
+  .subtitle-edit-text { flex:1 1 auto; min-width:0; min-height:38px; max-height:74px; margin:0; padding:6px 8px; resize:vertical; border:1px solid var(--color-border); border-radius:var(--radius-md); outline:none; background:var(--color-surface); color:var(--color-text); font-family:inherit; font-size:11px; line-height:1.4; }
+  .subtitle-edit-text:focus { border-color:var(--color-primary); box-shadow:var(--focus-ring); }
+  .subtitle-edit-text.invalid { border-color:var(--color-danger); }
+  .subtitle-text-stack { display:flex; flex-direction:column; flex:1 1 auto; min-width:0; gap:5px; }
+  .subtitle-translation-text { border-color:rgba(118,103,232,.45); }
+  .subtitle-translation-text::placeholder { color:var(--color-text-subtle); }
+  .subtitle-editor-card.original-mode .subtitle-translation-text { display:none; }
+  .subtitle-row-actions { display:flex; flex-direction:column; flex:0 0 54px; gap:4px; }
+  .subtitle-row-actions .btn { width:54px; height:27px; padding:0 4px; font-size:9px; }
+  .subtitle-edit-row.has-issue { background:rgba(226,168,74,.05); }
+  .subtitle-edit-row.filtered-out { display:none; }
+  @media (max-width:390px) { .subtitle-edit-row { flex-wrap:wrap; } .subtitle-edit-index { flex-basis:20px; } .subtitle-edit-time { flex:1 1 auto; } .subtitle-edit-text { flex:0 0 100%; width:100%; } }
+  .folder-path, .text-input, .select-control, .media-list, .post-row, .action-tile, .system-strip, .mode-switch, .alert, #log { overflow:hidden; }
+  .card, .btn, .task-status { overflow:visible; }
+  .folder-path, .text-input, .select-control, .btn { border-radius:var(--radius-md); }
+  .card, .action-tile, .system-strip, .post-row, .alert, #log { border-radius:var(--radius-lg); }
+  /* Premiere UXP-safe rendering: animated rounded shadows can rasterize as polygons. */
+  .card, .btn, .btn-primary, .btn-primary:hover, .task-status, .progress, .progress-bar { box-shadow:none !important; }
+  .btn-primary, .task-status, .progress, .progress-bar { transition:none !important; transform:none !important; }
+  .btn-primary, .task-status { border-radius:5px; }
+  .btn-primary { overflow:hidden; }
+  .task-status { overflow:hidden; }
+  .progress { height:5px; overflow:hidden; border-radius:1px; }
+  /* UXP scroll performance: avoid repainting hover/focus shadows while scrolling. */
+  .tab-btn, .btn, .status-dot, .text-input, .select-control { transition:none !important; }
+  .status-dot, .status-dot.active, .status-dot.error, .tab-btn.active, .text-input:focus, .select-control:focus, .btn:focus-visible, .tab-btn:focus-visible, input[type="checkbox"]:focus-visible { box-shadow:none !important; }
+  .text-input:focus, .select-control:focus, .btn:focus-visible, .tab-btn:focus-visible { outline:1px solid var(--color-primary); outline-offset:-1px; }
+  .card, .workflow-step, .scan-summary, .task-status, .alert { contain:layout style; }
+  @media (max-width:390px) { .connection-card { flex-wrap:wrap; } .connection-card .btn-grid { flex:1 1 100% !important; width:100% !important; } .action-tile { min-width:120px; } .tab-btn { font-size:10px; } .scan-summary { gap:6px; padding-left:8px; } .scan-duration { flex-basis:38px; width:38px; } .scan-summary .scan-action { flex-basis:62px; width:62px; padding:0 5px; } }
   @media (max-width:380px) { .post-grid { flex-direction:column; } .post-grid .folder-row { flex-basis:auto; width:100%; min-width:0; } .overlay-field-pair { flex-direction:column; } .overlay-field-pair .overlay-field { width:100%; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+  <defs>
+    <symbol id="i-captions" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h4M7 14h3M14 10h3M13 14h4"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="18" r="2"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="m8 12 8-8M14 3l7 7M5 11l8 8M2 22l5-5M3 13l8 8"/></symbol>
+    <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 4v4M15 10v4M11 16v4"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/><path d="M3 7V5h6l2 2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8A7 7 0 0 1 18 6l2 6M17.9 16A7 7 0 0 1 6 18l-2-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1A7 7 0 0 0 15 6l-.3-2.5h-4L10.4 6A7 7 0 0 0 8.7 7L6.4 6l-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4L15 18a7 7 0 0 0 1.7-1l2.3 1 2-3.5-2-1.5a7 7 0 0 0 0-1z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></symbol>
+  </defs>
+</svg>
 
 <div class="container">
   <!-- Header -->
   <div class="header">
     <div class="app-title">
       <h2>HT_Automation</h2>
-      <span class="version-tag">v4.3.3</span>
+      <span class="version-tag">v5.7.7</span>
     </div>
     <div class="connection-status">
       <div id="statusDot" class="status-dot"></div>
@@ -471,58 +669,82 @@
 
   <!-- Tab Switcher -->
   <div class="tab-bar">
-    <div id="tabBtnPost" onclick="activateTab('post')" role="button" tabindex="0" class="tab-btn">🎛 Hậu kỳ</div>
-    <div id="tabBtnImage" onclick="activateTab('image')" role="button" tabindex="0" class="tab-btn active">🖼️ Ảnh + Âm thanh</div>
-    <div id="tabBtnVideo" onclick="activateTab('video')" role="button" tabindex="0" class="tab-btn">🎞️ Video + Âm thanh</div>
+    <div id="tabBtnHome" role="button" tabindex="0" class="tab-btn active" title="Tổng quan"><span>Home</span></div>
+    <div id="tabBtnBuild" role="button" tabindex="0" class="tab-btn" title="Dựng media"><span>Dựng</span></div>
+    <div id="tabBtnSubtitle" role="button" tabindex="0" class="tab-btn"><span>Auto Sub</span></div>
+    <div id="tabBtnPost" role="button" tabindex="0" class="tab-btn"><span>Hậu kỳ</span></div>
+    <div id="tabBtnSettings" role="button" tabindex="0" class="tab-btn" title="Cài đặt"><span>Cài đặt</span></div>
   </div>
 
   <!-- Kết nối Premiere & chọn Timeline (dùng chung cho cả 2 tab) -->
   <div class="card connection-card">
     <div class="card-header">
-      <span class="card-title">🔌 Kết Nối Premiere & Chọn Timeline</span>
+      <span class="card-title"><svg class="icon section-icon"><use href="#i-plug"/></svg>Kết nối Premiere và chọn Timeline</span>
     </div>
 
     <div class="folder-row">
-      <span class="folder-label">🎬 Chọn Timeline / Sequence</span>
+      <span class="folder-label">Timeline / Sequence</span>
       <select id="selectSequence" class="select-control">
-        <option value="CREATE_NEW">✨ ➕ Tự động tạo Timeline mới</option>
+        <option value="CREATE_NEW">Tự động tạo Timeline mới</option>
       </select>
     </div>
 
     <div class="btn-grid">
       <div id="btnTestConnection" role="button" tabindex="0" class="btn btn-secondary">
-        <span>⚡ Test Kết Nối</span>
+        <svg class="icon"><use href="#i-check"/></svg><span>Kiểm tra</span>
       </div>
       <div id="btnReloadPanel" onclick="window.location.reload()" role="button" tabindex="0" class="btn btn-secondary" title="Tải lại giao diện Plugin">
-        <span>🔄 Tải Lại Panel</span>
+        <svg class="icon"><use href="#i-refresh"/></svg><span>Tải lại</span>
       </div>
     </div>
   </div>
 
-  <!-- ================= TAB: ẢNH + ÂM THANH ================= -->
+  <!-- ================= TAB: TONG QUAN ================= -->
+  <div id="tabPanelHome" class="tab-panel active">
+    <div class="dashboard-welcome">
+      <div class="dashboard-title">Bạn muốn làm gì?</div>
+      <div class="card-subtitle">Chọn một quy trình để bắt đầu với timeline hiện tại.</div>
+    </div>
+    <div class="dashboard-actions">
+      <div id="quickBuildImage" role="button" tabindex="0" class="action-tile"><span class="action-title">Dựng từ ảnh</span><span class="action-desc">Ghép ảnh với audio theo số</span></div>
+      <div id="quickBuildVideo" role="button" tabindex="0" class="action-tile"><span class="action-title">Dựng từ video</span><span class="action-desc">Khớp video với thời lượng audio</span></div>
+      <div id="quickSubtitle" role="button" tabindex="0" class="action-tile"><span class="action-title">Auto Subtitle</span><span class="action-desc">Tạo phụ đề đa ngôn ngữ từ A1</span></div>
+      <div id="quickPost" role="button" tabindex="0" class="action-tile"><span class="action-title">Hậu kỳ</span><span class="action-desc">Nhạc nền và video overlay</span></div>
+    </div>
+    <div class="system-strip"><span>Premiere <b id="homePremiereState">Chưa kiểm tra</b></span><span>FFmpeg <b id="homeFfmpegState">Đang kiểm tra</b></span><span>Whisper <b id="homeWhisperState">Đang kiểm tra</b></span></div>
+  </div>
+
+  <!-- ================= TAB: DUNG MEDIA ================= -->
+  <div id="tabPanelBuild" class="tab-panel">
+    <div class="mode-switch">
+      <div id="modeBtnImage" role="button" tabindex="0" class="mode-btn active">Ảnh + Audio</div>
+      <div id="modeBtnVideo" role="button" tabindex="0" class="mode-btn">Video + Audio</div>
+    </div>
+
+  <!-- ================= MODE: ẢNH + ÂM THANH ================= -->
   <div id="tabPanelImage" class="tab-panel active">
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">📁 Bước 1: Nguồn Dữ Liệu</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-folder"/></svg>Bước 1: Nguồn dữ liệu</span>
       </div>
 
       <div class="folder-row">
-        <span class="folder-label">🖼️ Thư mục ẢNH</span>
+        <span class="folder-label">Thư mục ảnh</span>
         <div class="input-group">
           <div id="pathImageFolder" class="folder-path">Chưa chọn thư mục...</div>
           <div id="btnPickImageFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
-            <span>📂 Chọn</span>
+            <svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span>
           </div>
         </div>
       </div>
 
       <div class="folder-row">
-        <span class="folder-label">🎵 Thư mục ÂM THANH</span>
+        <span class="folder-label">Thư mục âm thanh</span>
         <div class="input-group">
           <div id="pathAudioFolder" class="folder-path">Chưa chọn thư mục...</div>
           <div id="btnPickAudioFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
-            <span>📂 Chọn</span>
+            <svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span>
           </div>
         </div>
       </div>
@@ -530,11 +752,11 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">🔍 Bước 2: Quét & Ghép Cặp</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-search"/></svg>Bước 2: Quét và ghép cặp</span>
         <span id="badgeMatchedPairs" class="badge">0 cặp</span>
       </div>
       <div id="btnScanFiles" role="button" tabindex="0" class="btn btn-secondary">
-        <span>🔄 Quét File</span>
+        <svg class="icon"><use href="#i-refresh"/></svg><span>Quét file</span>
       </div>
       <label id="missingMediaChoice" style="display:none; margin-top:10px; font-size:11px; color:#fbbf24; cursor:pointer; align-items:center; gap:8px;">
         <input id="allowBuildWithMissing" type="checkbox" />
@@ -544,10 +766,10 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">🎬 Bước 3: Thao Tác Chính</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-timeline"/></svg>Bước 3: Dựng timeline</span>
       </div>
       <div id="btnBuildProject" role="button" tabindex="0" class="btn btn-primary">
-        <span>🚀 Dựng Project & Timeline</span>
+        <svg class="icon icon-lg"><use href="#i-play"/></svg><span>Dựng Project và Timeline</span>
       </div>
     </div>
 
@@ -558,33 +780,33 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">📁 Bước 1: Nguồn Dữ Liệu</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-folder"/></svg>Bước 1: Nguồn dữ liệu</span>
       </div>
 
       <div class="folder-row">
-        <span class="folder-label">🎞️ Thư mục VIDEO</span>
+        <span class="folder-label">Thư mục video</span>
         <div class="input-group">
           <div id="pathVideoFolder" class="folder-path">Chưa chọn thư mục...</div>
           <div id="btnPickVideoFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
-            <span>📂 Chọn</span>
+            <svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span>
           </div>
         </div>
       </div>
 
       <div class="folder-row">
-        <span class="folder-label">🎵 Thư mục ÂM THANH</span>
+        <span class="folder-label">Thư mục âm thanh</span>
         <div class="input-group">
           <div id="pathVideoAudioFolder" class="folder-path">Chưa chọn thư mục...</div>
           <div id="btnPickVideoAudioFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
-            <span>📂 Chọn</span>
+            <svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card">
+    <div id="ffmpegSettingsCard" class="card">
       <div class="card-header">
-        <span class="card-title">⚙️ Cấu Hình FFmpeg</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-settings"/></svg>Cấu hình FFmpeg</span>
         <span id="badgeFfmpegStatus" class="badge">Chưa kiểm tra</span>
       </div>
       <div class="card-subtitle">
@@ -595,7 +817,7 @@
         <div class="input-group">
           <input id="inputFfmpegPath" class="text-input" type="text" value="" placeholder="Đang xác định bin\\ffmpeg.exe..." />
           <div id="btnTestFfmpeg" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
-            <span>🧪 Kiểm tra</span>
+            <svg class="icon"><use href="#i-check"/></svg><span>Kiểm tra</span>
           </div>
         </div>
       </div>
@@ -603,11 +825,11 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">🔍 Bước 2: Quét & Ghép Cặp</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-search"/></svg>Bước 2: Quét và ghép cặp</span>
         <span id="badgeMatchedPairsVideo" class="badge">0 cặp</span>
       </div>
       <div id="btnScanFilesVideo" role="button" tabindex="0" class="btn btn-secondary">
-        <span>🔄 Quét File</span>
+        <svg class="icon"><use href="#i-refresh"/></svg><span>Quét file</span>
       </div>
       <label id="missingVideoMediaChoice" style="display:none; margin-top:10px; font-size:11px; color:#fbbf24; cursor:pointer; align-items:center; gap:8px;">
         <input id="allowBuildVideoWithMissing" type="checkbox" />
@@ -617,24 +839,82 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">🎬 Bước 3: Thao Tác Chính</span>
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-timeline"/></svg>Bước 3: Dựng timeline</span>
       </div>
       <div class="card-subtitle">
         Video → track V1 · Âm thanh (từ thư mục Âm thanh) → track A1. Quá trình xử lý FFmpeg từng cặp có thể mất vài giây, theo dõi tiến độ trong Nhật ký bên dưới.
       </div>
       <div id="btnBuildProjectVideo" role="button" tabindex="0" class="btn btn-primary">
-        <span>🚀 Dựng Project & Timeline</span>
+        <svg class="icon icon-lg"><use href="#i-play"/></svg><span>Dựng Project và Timeline</span>
       </div>
     </div>
 
   </div>
 
+  </div><!-- /tabPanelBuild -->
+
   <!-- Nhật ký Terminal (dùng chung) -->
+  <!-- ================= TAB: AUTO SUBTITLE ================= -->
+  <div id="tabPanelSubtitle" class="tab-panel">
+    <div class="card">
+      <div class="card-header"><span class="card-title"><svg class="icon section-icon"><use href="#i-captions"/></svg>Auto Subtitle từ track A1</span><span id="badgeSubtitleStatus" class="badge">Chưa chạy</span></div>
+      <div class="card-subtitle">Bộ cài tự tải whisper.cpp và model multilingual. Panel tự nhận đường dẫn; các nút Chọn dùng khi bạn muốn thay thế thủ công.</div>
+      <div class="workflow-step">
+        <div class="step-heading"><span class="step-number">1</span><span>Kiểm tra nguồn A1</span></div>
+        <div id="subtitleEmptyState" class="empty-state"><span>Chưa quét track A1 trên timeline hiện tại.</span><div id="btnScanA1" role="button" tabindex="0" class="btn btn-secondary">Quét A1</div></div>
+        <div id="subtitleA1Summary" class="scan-summary" style="display:none">
+          <b id="subtitleClipCount" class="scan-count">0 clip</b>
+          <span id="subtitleDuration" class="scan-duration">00:00</span>
+          <span id="subtitleScanDetail" class="scan-detail">Chưa có dữ liệu.</span>
+          <div id="btnRescanA1" role="button" tabindex="0" class="btn btn-secondary scan-action">Quét lại</div>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="step-heading"><span class="step-number">2</span><span>Tạo subtitle</span></div>
+      <div id="whisperExeSetting" class="folder-row"><span class="folder-label">whisper-cli.exe</span><div class="input-group"><div id="pathWhisperExe" class="folder-path">Chưa chọn...</div><div id="btnPickWhisperExe" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span></div></div></div>
+      <div id="whisperModelSetting" class="folder-row"><span class="folder-label">Model multilingual (.bin, ví dụ ggml-small.bin)</span><div class="input-group"><div id="pathWhisperModel" class="folder-path">Chưa chọn...</div><div id="btnPickWhisperModel" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span></div></div></div>
+      <div class="folder-row"><span class="folder-label">Thư mục lưu WAV tạm và SRT</span><div class="input-group"><div id="pathSubtitleOutput" class="folder-path">Chưa chọn...</div><div id="btnPickSubtitleOutput" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span></div></div></div>
+      <div class="post-grid">
+        <div class="folder-row"><span class="folder-label">Ngôn ngữ nhận dạng</span><select id="selectSubtitleLanguage" class="select-control"><option value="auto">Auto detect (Tự động)</option><option value="vi">Vietnamese (Tiếng Việt)</option><option value="en">English (Tiếng Anh)</option><option value="ja">Japanese (Tiếng Nhật)</option><option value="zh">Chinese (Tiếng Trung)</option><option value="ko">Korean (Tiếng Hàn)</option><option value="fr">French (Tiếng Pháp)</option><option value="de">German (Tiếng Đức)</option><option value="es">Spanish (Tiếng Tây Ban Nha)</option></select></div>
+        <div class="folder-row"><span class="folder-label">Số ký tự tối đa mỗi dòng</span><input id="inputSubtitleLineLength" class="text-input" type="text" value="42"></div>
+        <div class="folder-row"><span class="folder-label">Số dòng tối đa</span><select id="selectSubtitleMaxLines" class="select-control"><option value="2">2 dòng</option><option value="1">1 dòng</option></select></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px"><input id="checkSubtitleImport" type="checkbox" checked> Import file SRT vào Project sau khi tạo</label>
+      </div>
+      <div class="workflow-step workflow-action-step">
+        <div id="subtitleValidation" class="inline-validation" style="display:none"></div>
+      <div id="btnBuildSubtitle" role="button" tabindex="0" aria-label="Tạo subtitle từ A1" class="btn btn-primary" style="margin-top:10px"><svg class="icon icon-lg"><use href="#i-captions"/></svg><span>Tạo subtitle từ A1</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB: CAI DAT ================= -->
+  <div id="tabPanelSettings" class="tab-panel">
+    <div class="settings-heading"><div class="dashboard-title">Cài đặt và chẩn đoán</div><div class="card-subtitle">Các cấu hình kỹ thuật ít khi cần thay đổi.</div></div>
+    <div id="settingsTechnical"></div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Trạng thái hệ thống</span></div>
+      <div class="settings-status-row"><span>Premiere Pro</span><span id="settingsPremiereState" class="badge">Chưa kiểm tra</span></div>
+      <div class="settings-status-row"><span>FFmpeg Bridge</span><span id="settingsFfmpegState" class="badge">Đang kiểm tra</span></div>
+      <div class="settings-status-row"><span>Whisper multilingual</span><span id="settingsWhisperState" class="badge">Đang kiểm tra</span></div>
+      <div class="btn-grid" style="margin-top:12px">
+        <div id="btnRunDiagnostics" role="button" tabindex="0" class="btn btn-secondary">Kiểm tra toàn bộ</div>
+        <div id="btnExportDiagnostics" role="button" tabindex="0" class="btn btn-secondary">Xuất báo cáo</div>
+      </div>
+      <div id="diagnosticsSummary" class="card-subtitle" style="margin-top:10px">Chưa chạy chẩn đoán.</div>
+    </div>
+  </div>
+
   <!-- ================= TAB: HAU KY TU DONG ================= -->
   <div id="tabPanelPost" class="tab-panel">
+    <div class="mode-switch">
+      <div id="modeBtnMusic" role="button" tabindex="0" class="mode-btn active">Nhạc nền</div>
+      <div id="modeBtnOverlay" role="button" tabindex="0" class="mode-btn">Overlay</div>
+    </div>
+    <div id="postMusicPanel" class="post-mode-panel active">
     <div class="card">
-      <div class="card-header"><span class="card-title">🎵 Nhạc nền tự động</span><span id="badgeMusicCount" class="badge">0 bài</span></div>
-      <div class="folder-row"><span class="folder-label">Thư mục nhạc (MP3, WAV, M4A, AAC, FLAC)</span><div class="input-group"><div id="pathMusicFolder" class="folder-path">Chưa chọn thư mục...</div><div id="btnPickMusicFolder" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><span>📂 Chọn</span></div></div></div>
+      <div class="card-header"><span class="card-title"><svg class="icon section-icon"><use href="#i-music"/></svg>Nhạc nền tự động</span><span id="badgeMusicCount" class="badge">0 bài</span></div>
+      <div class="folder-row"><span class="folder-label">Thư mục nhạc (MP3, WAV, M4A, AAC, FLAC)</span><div class="input-group"><div id="pathMusicFolder" class="folder-path">Chưa chọn thư mục...</div><div id="btnPickMusicFolder" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0"><svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span></div></div></div>
       <div class="post-grid">
         <div class="folder-row"><span class="folder-label">Loudness mục tiêu (-26 đến -24 LUFS)</span><input id="inputMusicLufs" class="text-input" type="text" value="-25"></div>
         <div class="folder-row"><span class="folder-label">Track âm thanh đích (A2 = nhập 2)</span><input id="inputMusicTrack" class="text-input" type="text" value="2"></div>
@@ -642,22 +922,33 @@
         <div class="folder-row"><span class="folder-label">Kết thúc (giây; trống = cuối timeline)</span><input id="inputMusicEnd" class="text-input" type="text" placeholder="Tự động"></div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px"><input id="checkMusicLoop" type="checkbox" checked> Lặp playlist đến hết timeline</label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px"><input id="checkMusicNormalize" type="checkbox"> Chuẩn hóa LUFS trước khi thêm (chậm)</label>
       <div id="musicFileList" class="media-list">Chưa có danh sách nhạc.</div>
-      <div id="btnBuildMusic" role="button" tabindex="0" class="btn btn-primary" style="margin-top:10px"><span>🎵 Chuẩn hóa và thêm nhạc nền</span></div>
+      <div id="btnBuildMusic" role="button" tabindex="0" class="btn btn-primary" style="margin-top:10px"><svg class="icon icon-lg"><use href="#i-music"/></svg><span>Thêm nhạc nền ngay</span></div>
     </div>
+    </div>
+    <div id="postOverlayPanel" class="post-mode-panel">
     <div class="card">
-      <div class="card-header"><span class="card-title">🎞 Video overlay theo thời gian</span><span id="badgeOverlayCount" class="badge">0 overlay</span></div>
+      <div class="card-header"><span class="card-title"><svg class="icon section-icon"><use href="#i-layers"/></svg>Video overlay theo thời gian</span><span id="badgeOverlayCount" class="badge">0 overlay</span></div>
       <div class="card-subtitle">Nhập số frame cần xuất hiện, ví dụ 900 hoặc 900, 1800, 2700. Chế độ tự động sẽ lặp overlay theo khoảng frame đến cuối timeline.</div>
       <div id="overlayRows"></div>
       <div id="btnAddOverlay" role="button" tabindex="0" class="btn btn-secondary" style="margin-top:10px"><span>＋ Chọn file overlay</span></div>
-      <div id="btnBuildOverlays" role="button" tabindex="0" class="btn btn-primary" style="margin-top:8px"><span>🎞 Thêm overlay vào timeline</span></div>
+      <div id="btnBuildOverlays" role="button" tabindex="0" class="btn btn-primary" style="margin-top:8px"><svg class="icon icon-lg"><use href="#i-layers"/></svg><span>Thêm overlay vào timeline</span></div>
+    </div>
     </div>
   </div>
 
-  <div class="log-container">
+  <div id="taskStatus" class="task-status" style="display:none">
+    <div class="task-status-top"><span id="taskStatusText">Đang xử lý...</span><div class="task-status-actions"><span id="taskStatusPercent">0%</span><div id="btnPauseTask" role="button" tabindex="0" class="btn btn-icon">Tạm dừng</div></div></div>
+    <div class="progress"><div id="taskProgressBar" class="progress-bar"></div></div>
+    <div id="taskStatusDetail" class="task-detail"></div>
+  </div>
+  <div id="resultAlert" class="alert" style="display:none"></div>
+
+  <div class="log-container collapsed">
     <div class="log-header">
-      <span class="card-title">📋 Nhật Ký Hoạt Động</span>
-      <div id="btnClearLog" role="button" tabindex="0" class="btn btn-icon">Xóa log</div>
+      <span class="card-title"><svg class="icon section-icon"><use href="#i-list"/></svg>Nhật ký hoạt động</span>
+      <div class="log-actions"><div id="btnToggleLog" role="button" tabindex="0" class="btn btn-icon">Xem</div><div id="btnClearLog" role="button" tabindex="0" class="btn btn-icon">Xóa</div></div>
     </div>
     <div id="log">Sẵn sàng thực thi quy trình.</div>
   </div>

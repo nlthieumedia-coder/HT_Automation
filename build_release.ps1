@@ -1,4 +1,18 @@
+param([switch]$OfflineRuntime)
 $ErrorActionPreference = "Stop"
+
+$nodeCandidates = @(
+    (Join-Path $env:ProgramFiles "nodejs\node.exe"),
+    (Join-Path $env:ProgramFiles "Adobe\Adobe Creative Cloud Experience\libs\node.exe"),
+    (Join-Path $env:ProgramFiles "Common Files\Adobe\Creative Cloud Libraries\libs\node.exe")
+)
+$nodeExe = $nodeCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+if ($nodeExe) {
+    & $nodeExe --check (Join-Path $PSScriptRoot "index.js")
+    if ($LASTEXITCODE -ne 0) { throw "index.js co loi cu phap. Da dung dong goi de tranh tao bo cai bi hong." }
+} else {
+    Write-Warning "Khong tim thay Node.js; bo qua kiem tra cu phap index.js."
+}
 
 $projectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $distDir = Join-Path $projectDir "dist"
@@ -93,9 +107,11 @@ $resolvedDistDir = [System.IO.Path]::GetFullPath($distDir)
 if (-not $resolvedDistDir.StartsWith($resolvedProjectDir, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Thu muc dist nam ngoai project; huy don dep."
 }
+$versionTag = "v$($manifest.version)"
 $canonicalDistNames = @(
-    "com.hieuyt.htautomation_premierepro.ccx",
-    "HT_Automation_Setup_Windows.zip"
+    "HT_Automation_PremierePro.ccx",
+    "HT_Automation_Setup_Windows.zip",
+    "HT_Automation_Setup_Windows_Full_Offline.zip"
 )
 Get-ChildItem -LiteralPath $resolvedDistDir -Force | ForEach-Object {
     if ($canonicalDistNames -notcontains $_.Name) {
@@ -111,7 +127,7 @@ Get-ChildItem -LiteralPath $resolvedDistDir -Force | ForEach-Object {
 $tempRoot = [System.IO.Path]::GetTempPath()
 $stageDir = Join-Path $tempRoot ("HT_Automation_CCX_" + [Guid]::NewGuid().ToString("N"))
 # Match the filename convention used by Adobe UXP Developer Tool.
-$packageName = "{0}_{1}.ccx" -f $manifest.id, $manifest.host.app
+$packageName = "HT_Automation_PremierePro.ccx"
 $packagePath = Join-Path $distDir $packageName
 
 try {
@@ -164,20 +180,53 @@ try {
     Write-Host "Dung luong: $sizeMB MB"
     Write-Host "SHA-256: $hash"
     Write-Host ""
-    Write-Host "May khac chi can nhap dup file .ccx va chon Install." -ForegroundColor Cyan
+    Write-Host "Dung bo cai mot click ben duoi de cai ma khong can Creative Cloud." -ForegroundColor Cyan
 
     $portableDir = Join-Path $tempRoot ("HT_Automation_Setup_" + [Guid]::NewGuid().ToString("N"))
-    $portableZip = Join-Path $distDir "HT_Automation_Setup_Windows.zip"
     New-Item -ItemType Directory -Path $portableDir | Out-Null
+    $packageInfo = @{
+        product = "HT_Automation"
+        version = [string]$manifest.version
+        bridgeVersion = [string]$manifest.version
+        premiereMinimum = [string]$manifest.host.minVersion
+        packageMode = $(if ($OfflineRuntime) { "Full Offline" } else { "Online" })
+        builtAt = (Get-Date).ToString("o")
+    }
+    $packageInfo | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $portableDir "package-info.json") -Encoding UTF8
+    $portableZipName = "HT_Automation_Setup_Windows{0}.zip" -f $(if ($OfflineRuntime) { "_Full_Offline" } else { "" })
+    $portableZip = Join-Path $distDir $portableZipName
     New-Item -ItemType Directory -Path (Join-Path $portableDir "installer") | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $portableDir "payload") | Out-Null
     Copy-Item -LiteralPath $packagePath -Destination $portableDir
     Copy-Item -LiteralPath (Join-Path $projectDir "CAI_DAT_MOT_CLICK.bat") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "GO_CAI_DAT.bat") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "SUA_CHUA.bat") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "CAP_NHAT_MOT_CLICK.bat") -Destination $portableDir
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\install.ps1") -Destination (Join-Path $portableDir "installer")
+    Copy-Item -LiteralPath (Join-Path $projectDir "installer\update.ps1") -Destination (Join-Path $portableDir "installer")
+    Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall_bridge.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg_bridge_server.ps1") -Destination (Join-Path $portableDir "payload")
+    Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg.exe") -Destination (Join-Path $portableDir "payload")
     Copy-Item -LiteralPath (Join-Path $projectDir "HUONG_DAN_CAI_DAT.txt") -Destination $portableDir
     Copy-Item -LiteralPath (Join-Path $projectDir "THIRD_PARTY_NOTICES.md") -Destination $portableDir
+    if ($OfflineRuntime) {
+        $installedWhisper = Join-Path $env:LOCALAPPDATA "HT_Automation\Whisper"
+        $offlineWhisper = Join-Path $portableDir "payload\Whisper"
+        if (-not (Test-Path -LiteralPath (Join-Path $installedWhisper "whisper-cli.exe")) -or -not (Test-Path -LiteralPath (Join-Path $installedWhisper "ggml-small.bin"))) {
+            throw "Khong co Whisper runtime/model day du de tao goi Full Offline."
+        }
+        New-Item -ItemType Directory -Path $offlineWhisper -Force | Out-Null
+        Copy-Item -Path (Join-Path $installedWhisper "*") -Destination $offlineWhisper -Recurse -Force
+    }
+    $releaseNote = @"
+HT_Automation $versionTag
+Premiere Pro toi thieu: $($manifest.host.minVersion)
+Che do bo cai: $($packageInfo.packageMode)
+CCX: $packageName
+Ngay dong goi: $($packageInfo.builtAt)
+"@
+    Set-Content -LiteralPath (Join-Path $portableDir "PHIEN_BAN_$versionTag.txt") -Value $releaseNote -Encoding UTF8
     if (Test-Path -LiteralPath $portableZip) { Remove-Item -LiteralPath $portableZip -Force }
     Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath $portableZip -CompressionLevel Optimal
     $portableHash = (Get-FileHash -LiteralPath $portableZip -Algorithm SHA256).Hash

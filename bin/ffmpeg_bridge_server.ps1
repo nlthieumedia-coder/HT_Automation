@@ -3,9 +3,49 @@
 # ============================================================================
 
 $port = 19888
+$bridgeVersion = "5.7.7"
 $localAddr = [System.Net.IPAddress]::Parse("127.0.0.1")
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $defaultFfmpegExe = Join-Path $scriptDir "ffmpeg.exe"
+$whisperDir = Join-Path (Split-Path -Parent $scriptDir) "Whisper"
+$defaultWhisperExe = Join-Path $whisperDir "whisper-cli.exe"
+$defaultWhisperModel = Join-Path $whisperDir "ggml-small.bin"
+$whisperBackendFile = Join-Path $whisperDir "backend.txt"
+
+# Collect once when the Bridge starts. This avoids repeatedly querying WMI while
+# Premiere is working and gives the panel enough information to tune its workload.
+$machineProfile = @{
+    cpuName = ""
+    logicalProcessors = [Environment]::ProcessorCount
+    physicalMemoryGB = 0
+    gpuName = ""
+    gpuMemoryMB = 0
+    runtimeDriveFreeGB = 0
+}
+try {
+    $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+    $machineProfile.cpuName = ([string]$cpu.Name).Trim()
+} catch {}
+try {
+    $computer = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+    $machineProfile.physicalMemoryGB = [Math]::Round([double]$computer.TotalPhysicalMemory / 1GB, 1)
+} catch {}
+try {
+    $runtimeDriveName = [System.IO.Path]::GetPathRoot($scriptDir).TrimEnd('\')
+    $runtimeDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$runtimeDriveName'" -ErrorAction Stop
+    $machineProfile.runtimeDriveFreeGB = [Math]::Round([double]$runtimeDrive.FreeSpace / 1GB, 1)
+} catch {}
+try {
+    $nvidiaCommand = Get-Command "nvidia-smi.exe" -ErrorAction SilentlyContinue
+    $nvidiaPath = $(if ($nvidiaCommand) { $nvidiaCommand.Source } elseif (Test-Path -LiteralPath "$env:WINDIR\System32\nvidia-smi.exe") { "$env:WINDIR\System32\nvidia-smi.exe" } else { "" })
+    if ($nvidiaPath) {
+        $gpuLine = & $nvidiaPath --query-gpu=name,memory.total --format=csv,noheader,nounits 2>$null | Select-Object -First 1
+        if ($gpuLine -match '^\s*(.+),\s*(\d+)\s*$') {
+            $machineProfile.gpuName = $matches[1].Trim()
+            $machineProfile.gpuMemoryMB = [int]$matches[2]
+        }
+    }
+} catch {}
 
 # Kiem tra xem Server da dang chay va phan hoi tot chua
 try {
@@ -87,6 +127,7 @@ while ($true) {
         $isOptions = $requestLine.StartsWith("OPTIONS")
         $isHealth = $requestLine.Contains("/health")
         $isRun = $requestLine.Contains("/run")
+        $isCleanup = $requestLine.Contains("/cleanup")
 
         $responseBody = ""
         $statusCode = "200 OK"
@@ -94,10 +135,44 @@ while ($true) {
         if ($isOptions) {
             $responseBody = ""
         } elseif ($isHealth) {
-            $responseBody = '{"status":"ok","message":"FFmpeg Bridge Server is running"}'
+            $healthObj = @{
+                status = "ok"
+                message = "FFmpeg Bridge Server is running"
+                bridgeVersion = $bridgeVersion
+                logicalProcessors = $machineProfile.logicalProcessors
+                cpuName = $machineProfile.cpuName
+                physicalMemoryGB = $machineProfile.physicalMemoryGB
+                gpuName = $machineProfile.gpuName
+                gpuMemoryMB = $machineProfile.gpuMemoryMB
+                runtimeDriveFreeGB = $machineProfile.runtimeDriveFreeGB
+                whisperBackend = $(if (Test-Path -LiteralPath $whisperBackendFile -PathType Leaf) { (Get-Content -LiteralPath $whisperBackendFile -Raw).Trim() } else { "CPU" })
+                whisperExe = $(if (Test-Path -LiteralPath $defaultWhisperExe -PathType Leaf) { $defaultWhisperExe } else { "" })
+                whisperModel = $(if (Test-Path -LiteralPath $defaultWhisperModel -PathType Leaf) { $defaultWhisperModel } else { "" })
+            }
+            $responseBody = ConvertTo-Json $healthObj -Compress
+        } elseif ($isCleanup) {
+            $removed = 0
+            if ($bodyText -and $bodyText.Trim().Length -gt 0) {
+                try {
+                    $cleanupData = ConvertFrom-Json $bodyText
+                    foreach ($candidate in @($cleanupData.paths)) {
+                        $candidatePath = [string]$candidate
+                        $candidateName = [System.IO.Path]::GetFileName($candidatePath)
+                        $candidateExtension = [System.IO.Path]::GetExtension($candidatePath).ToLowerInvariant()
+                        if ($candidateName.StartsWith("ht_sub_", [StringComparison]::OrdinalIgnoreCase) -and @(".wav", ".json", ".txt") -contains $candidateExtension) {
+                            if (Test-Path -LiteralPath $candidatePath -PathType Leaf) {
+                                Remove-Item -LiteralPath $candidatePath -Force -ErrorAction Stop
+                                $removed++
+                            }
+                        }
+                    }
+                } catch {}
+            }
+            $responseBody = ConvertTo-Json @{ removed = $removed } -Compress
         } elseif ($isRun) {
             $exePath = $defaultFfmpegExe
             $argsArr = @("-version")
+            $timeoutMs = 0
 
             if ($bodyText -and $bodyText.Trim().Length -gt 0) {
                 try {
@@ -107,6 +182,9 @@ while ($true) {
                     }
                     if ($data.args) {
                         $argsArr = $data.args
+                    }
+                    if ($data.timeoutMs) {
+                        $timeoutMs = [Math]::Max(0, [Math]::Min(1800000, [int]$data.timeoutMs))
                     }
                 } catch {}
             }
@@ -145,10 +223,21 @@ while ($true) {
                 [void]$proc.Start()
                 $stdOutTask = $proc.StandardOutput.ReadToEndAsync()
                 $stdErrTask = $proc.StandardError.ReadToEndAsync()
-                $proc.WaitForExit()
+                $exited = $(if ($timeoutMs -gt 0) { $proc.WaitForExit($timeoutMs) } else { $proc.WaitForExit(); $true })
+                if (-not $exited) {
+                    try { $proc.Kill() } catch {}
+                    $proc.WaitForExit()
+                    $stdErrText = "Process timeout after $timeoutMs ms."
+                    $exitCode = 124
+                }
                 $stdOutText = $stdOutTask.Result
-                $stdErrText = $stdErrTask.Result
-                $exitCode = $proc.ExitCode
+                $capturedStdErr = $stdErrTask.Result
+                if ($exitCode -ne 124) {
+                    $stdErrText = $capturedStdErr
+                    $exitCode = $proc.ExitCode
+                } elseif ($capturedStdErr) {
+                    $stdErrText += " " + $capturedStdErr
+                }
             } catch {
                 $stdErrText = $_.Exception.Message
                 $exitCode = -1

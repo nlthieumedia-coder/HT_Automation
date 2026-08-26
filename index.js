@@ -11,13 +11,13 @@ try {
   console.warn("Module premierepro chưa sẵn sàng:", e.message);
 }
 
-async function runFfmpegProcess(exePath, args) {
+async function runFfmpegProcess(exePath, args, timeoutMs = 0) {
   // Local Bridge HTTP Server (chạy ngầm port 19888)
   try {
     const response = await fetch("http://127.0.0.1:19888/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exePath, args })
+      body: JSON.stringify({ exePath, args, timeoutMs })
     });
     if (response.ok) {
       const data = await response.json();
@@ -30,6 +30,15 @@ async function runFfmpegProcess(exePath, args) {
       `👉 Hãy chạy lại bộ cài một click để bật FFmpeg Bridge.`
     );
   }
+}
+
+async function runProcessWithHeartbeat(exePath, args, timeoutMs, label, detail, percent) {
+  const started = Date.now();
+  const update = () => showTaskProgress(label, `${detail} · đang chạy ${formatClockDuration((Date.now() - started) / 1000)}`, percent);
+  update();
+  const timer = setInterval(update, 1000);
+  try { return await runFfmpegProcess(exePath, args, timeoutMs); }
+  finally { clearInterval(timer); }
 }
 
 // ---- Safe DOM Helpers ----
@@ -50,8 +59,11 @@ function log(msg) {
   console.log(msg);
   const logEl = getEl("log");
   if (logEl) {
-    logEl.textContent += "\n" + msg;
-    logEl.scrollTop = logEl.scrollHeight;
+    const current = String(logEl.textContent || "");
+    const lines = `${current}\n${msg}`.split("\n");
+    logEl.textContent = lines.slice(-300).join("\n");
+    const container = document.querySelector(".log-container");
+    if (container && !container.classList.contains("collapsed")) logEl.scrollTop = logEl.scrollHeight;
   }
 }
 
@@ -66,6 +78,117 @@ function setBtnDisabled(btnId, disabled) {
     btn.removeAttribute("disabled");
     btn.classList.remove("disabled");
   }
+}
+
+function setSystemState(kind, label, stateClass) {
+  const capitalized = kind.charAt(0).toUpperCase() + kind.slice(1);
+  const home = getEl(`home${capitalized}State`);
+  const settings = getEl(`settings${capitalized}State`);
+  if (home) home.textContent = label;
+  if (settings) {
+    settings.textContent = label;
+    settings.classList.remove("success", "warning", "error");
+    if (stateClass) settings.classList.add(stateClass);
+  }
+}
+
+let activeTaskStartedAt = 0;
+let taskPauseRequested = false;
+let subtitleBuildRunning = false;
+
+// Bind the primary subtitle action early. It must remain usable even if an
+// optional editor/export initializer later in this file fails in Premiere UXP.
+listen("btnBuildSubtitle", "click", handleBuildSubtitle);
+const earlySubtitleButton = getEl("btnBuildSubtitle");
+if (earlySubtitleButton) {
+  earlySubtitleButton.classList.remove("disabled", "is-running");
+  earlySubtitleButton.removeAttribute("disabled");
+}
+
+async function waitIfTaskPaused() {
+  if (!taskPauseRequested) return;
+  const box = getEl("taskStatus");
+  if (box) box.classList.add("paused");
+  while (taskPauseRequested) await new Promise((resolve) => setTimeout(resolve, 150));
+  if (box) box.classList.remove("paused");
+}
+
+listen("btnPauseTask", "click", () => {
+  taskPauseRequested = !taskPauseRequested;
+  const button = getEl("btnPauseTask");
+  if (button) button.textContent = taskPauseRequested ? "Tiếp tục" : "Tạm dừng";
+  const box = getEl("taskStatus");
+  if (box) box.classList.toggle("paused", taskPauseRequested);
+  const detail = getEl("taskStatusDetail");
+  if (detail && taskPauseRequested) detail.textContent = "Sẽ tạm dừng ngay sau file hoặc clip hiện tại...";
+});
+
+function showTaskProgress(label, detail = "", percent = 0) {
+  activeTaskStartedAt = activeTaskStartedAt || Date.now();
+  const box = getEl("taskStatus");
+  if (box) box.style.display = "block";
+  getEl("taskStatusText").textContent = label;
+  const elapsed = Math.floor((Date.now() - activeTaskStartedAt) / 1000);
+  getEl("taskStatusDetail").textContent = `${detail}${detail ? " · " : ""}${formatClockDuration(elapsed)}`;
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+  getEl("taskStatusPercent").textContent = `${safePercent}%`;
+  getEl("taskProgressBar").style.width = `${safePercent}%`;
+  const alert = getEl("resultAlert");
+  if (alert) alert.style.display = "none";
+}
+
+function finishTask(message, kind = "success") {
+  const box = getEl("taskStatus");
+  if (box) box.style.display = "none";
+  const alert = getEl("resultAlert");
+  if (alert) {
+    alert.className = `alert ${kind}`;
+    alert.textContent = message;
+    alert.style.display = "flex";
+  }
+  activeTaskStartedAt = 0;
+  taskPauseRequested = false;
+  if (getEl("btnPauseTask")) getEl("btnPauseTask").textContent = "Tạm dừng";
+  if (getEl("taskStatus")) getEl("taskStatus").classList.remove("paused");
+  if (kind === "error") {
+    const logContainer = document.querySelector(".log-container");
+    if (logContainer) logContainer.classList.remove("collapsed");
+    if (getEl("btnToggleLog")) getEl("btnToggleLog").textContent = "Ẩn";
+  }
+}
+
+function saveUiPreferences() {
+  try {
+    localStorage.setItem("htAutomationPreferences", JSON.stringify({
+      subtitleLanguage: getEl("selectSubtitleLanguage") ? getEl("selectSubtitleLanguage").value : "auto",
+      subtitleLineLength: getEl("inputSubtitleLineLength") ? getEl("inputSubtitleLineLength").value : "42",
+      subtitleMaxLines: getEl("selectSubtitleMaxLines") ? getEl("selectSubtitleMaxLines").value : "2",
+      subtitleImport: getEl("checkSubtitleImport") ? getEl("checkSubtitleImport").checked : true,
+      musicLufs: getEl("inputMusicLufs") ? getEl("inputMusicLufs").value : "-25",
+      musicTrack: getEl("inputMusicTrack") ? getEl("inputMusicTrack").value : "2",
+      musicLoop: getEl("checkMusicLoop") ? getEl("checkMusicLoop").checked : true,
+      musicNormalize: getEl("checkMusicNormalize") ? getEl("checkMusicNormalize").checked : false
+    }));
+  } catch (e) {}
+}
+
+function restoreUiPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("htAutomationPreferences") || "{}");
+    if (saved.subtitleLanguage && getEl("selectSubtitleLanguage")) getEl("selectSubtitleLanguage").value = saved.subtitleLanguage;
+    if (saved.subtitleLineLength && getEl("inputSubtitleLineLength")) getEl("inputSubtitleLineLength").value = saved.subtitleLineLength;
+    if (saved.subtitleMaxLines && getEl("selectSubtitleMaxLines")) getEl("selectSubtitleMaxLines").value = saved.subtitleMaxLines;
+    if (typeof saved.subtitleImport === "boolean" && getEl("checkSubtitleImport")) getEl("checkSubtitleImport").checked = saved.subtitleImport;
+    if (saved.musicLufs && getEl("inputMusicLufs")) getEl("inputMusicLufs").value = saved.musicLufs;
+    if (saved.musicTrack && getEl("inputMusicTrack")) getEl("inputMusicTrack").value = saved.musicTrack;
+    if (typeof saved.musicLoop === "boolean" && getEl("checkMusicLoop")) getEl("checkMusicLoop").checked = saved.musicLoop;
+    if (typeof saved.musicNormalize === "boolean" && getEl("checkMusicNormalize")) getEl("checkMusicNormalize").checked = saved.musicNormalize;
+  } catch (e) {}
+}
+restoreUiPreferences();
+for (const preferenceId of ["selectSubtitleLanguage", "inputSubtitleLineLength", "selectSubtitleMaxLines", "checkSubtitleImport", "inputMusicLufs", "inputMusicTrack", "checkMusicLoop", "checkMusicNormalize"]) {
+  listen(preferenceId, "change", saveUiPreferences);
+  listen(preferenceId, "input", saveUiPreferences);
 }
 
 // ---- State chung ----
@@ -94,29 +217,70 @@ let bundledFfmpegPath = "ffmpeg";
 
 // ---- Tab Switcher ----
 function activateTab(tab) {
-  const isImage = tab === "image";
-  const isVideo = tab === "video";
-  const isPost = tab === "post";
+  const names = ["home", "build", "subtitle", "post", "settings"];
   const pairs = [
-    [getEl("tabBtnImage"), getEl("tabPanelImage"), isImage],
-    [getEl("tabBtnVideo"), getEl("tabPanelVideo"), isVideo],
-    [getEl("tabBtnPost"), getEl("tabPanelPost"), isPost]
+    [getEl("tabBtnHome"), getEl("tabPanelHome"), tab === "home"],
+    [getEl("tabBtnBuild"), getEl("tabPanelBuild"), tab === "build"],
+    [getEl("tabBtnSubtitle"), getEl("tabPanelSubtitle"), tab === "subtitle"],
+    [getEl("tabBtnPost"), getEl("tabPanelPost"), tab === "post"],
+    [getEl("tabBtnSettings"), getEl("tabPanelSettings"), tab === "settings"]
   ];
   for (const [button, panel, active] of pairs) {
     if (button) button.classList.toggle("active", active);
     if (panel) { panel.classList.toggle("active", active); panel.style.display = active ? "block" : "none"; }
   }
-  log(`👉 Đã chuyển tab: ${isImage ? "Ảnh + Âm thanh" : (isVideo ? "Video + Âm thanh" : "Hậu kỳ tự động")}`);
-  if ((isVideo || isPost) && typeof autoCheckFfmpeg === "function") autoCheckFfmpeg(true);
+  if (!names.includes(tab)) return;
+  if ((tab === "build" || tab === "post" || tab === "subtitle" || tab === "settings") && typeof autoCheckFfmpeg === "function") autoCheckFfmpeg(true);
 }
 window.activateTab = activateTab;
 
-listen("tabBtnImage", "click", () => activateTab("image"));
-listen("tabBtnVideo", "click", () => activateTab("video"));
-listen("tabBtnImage", "pointerdown", () => activateTab("image"));
-listen("tabBtnVideo", "pointerdown", () => activateTab("video"));
+function activateBuildMode(mode) {
+  const imageActive = mode === "image";
+  getEl("modeBtnImage").classList.toggle("active", imageActive);
+  getEl("modeBtnVideo").classList.toggle("active", !imageActive);
+  getEl("tabPanelImage").classList.toggle("active", imageActive);
+  getEl("tabPanelVideo").classList.toggle("active", !imageActive);
+  getEl("tabPanelImage").style.display = imageActive ? "block" : "none";
+  getEl("tabPanelVideo").style.display = imageActive ? "none" : "block";
+  if (!imageActive && typeof autoCheckFfmpeg === "function") autoCheckFfmpeg(true);
+}
+
+function activatePostMode(mode) {
+  const musicActive = mode === "music";
+  getEl("modeBtnMusic").classList.toggle("active", musicActive);
+  getEl("modeBtnOverlay").classList.toggle("active", !musicActive);
+  getEl("postMusicPanel").classList.toggle("active", musicActive);
+  getEl("postOverlayPanel").classList.toggle("active", !musicActive);
+}
+
+listen("tabBtnHome", "click", () => activateTab("home"));
+listen("tabBtnBuild", "click", () => activateTab("build"));
 listen("tabBtnPost", "click", () => activateTab("post"));
-listen("tabBtnPost", "pointerdown", () => activateTab("post"));
+listen("tabBtnSubtitle", "click", () => activateTab("subtitle"));
+listen("tabBtnSettings", "click", () => activateTab("settings"));
+listen("modeBtnImage", "click", () => activateBuildMode("image"));
+listen("modeBtnVideo", "click", () => activateBuildMode("video"));
+listen("modeBtnMusic", "click", () => activatePostMode("music"));
+listen("modeBtnOverlay", "click", () => activatePostMode("overlay"));
+listen("quickBuildImage", "click", () => { activateTab("build"); activateBuildMode("image"); });
+listen("quickBuildVideo", "click", () => { activateTab("build"); activateBuildMode("video"); });
+listen("quickSubtitle", "click", () => activateTab("subtitle"));
+listen("quickPost", "click", () => activateTab("post"));
+
+for (const tabButton of ["tabBtnHome", "tabBtnBuild", "tabBtnSubtitle", "tabBtnPost", "tabBtnSettings"]) {
+  listen(tabButton, "keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      getEl(tabButton).click();
+    }
+  });
+}
+
+// Move technical controls to Settings without changing their IDs/listeners.
+const settingsTechnical = getEl("settingsTechnical");
+for (const technicalElement of [getEl("ffmpegSettingsCard"), getEl("whisperExeSetting"), getEl("whisperModelSetting")]) {
+  if (settingsTechnical && technicalElement) settingsTechnical.appendChild(technicalElement);
+}
 
 listen("btnReloadPanel", "click", () => {
   log("🔄 Đang tải lại giao diện Plugin...");
@@ -127,14 +291,12 @@ listen("btnClearLog", "click", () => {
   const logEl = getEl("log");
   if (logEl) logEl.textContent = "Sẵn sàng thực thi quy trình.";
 });
-
-const logContainerEl = getEl("log");
-if (logContainerEl) {
-  logContainerEl.addEventListener("wheel", (e) => {
-    e.stopPropagation();
-    logContainerEl.scrollTop += e.deltaY;
-  });
-}
+listen("btnToggleLog", "click", () => {
+  const container = document.querySelector(".log-container");
+  if (!container) return;
+  const collapsed = container.classList.toggle("collapsed");
+  getEl("btnToggleLog").textContent = collapsed ? "Xem" : "Ẩn";
+});
 
 // ==========================================================================
 // ---- Quan ly danh sach Sequence (dung chung cho ca 2 tab) ----
@@ -237,11 +399,13 @@ listen("btnTestConnection", "click", async () => {
       if (statusDotEl) statusDotEl.classList.remove("active");
       if (statusTextEl) statusTextEl.textContent = "Không tìm thấy Project";
       log("⚠️ Chưa tìm thấy Project nào đang mở trong Premiere Pro.");
+      setSystemState("premiere", "Chưa kết nối", "warning");
       return;
     }
 
     if (statusDotEl) statusDotEl.classList.add("active");
     if (statusTextEl) statusTextEl.textContent = "Đã kết nối";
+    setSystemState("premiere", "Sẵn sàng", "success");
     log(`✅ Kết nối THÀNH CÔNG với Project: "${project.name}". Đang nạp danh sách Sequence...`);
 
     const currentSeq = await refreshSequenceDropdown(project);
@@ -256,6 +420,7 @@ listen("btnTestConnection", "click", async () => {
     const statusTextEl = getEl("statusText");
     if (statusDotEl) statusDotEl.classList.remove("active");
     if (statusTextEl) statusTextEl.textContent = "Lỗi kết nối";
+    setSystemState("premiere", "Lỗi", "error");
     log("❌ Lỗi kết nối tới Premiere Pro: " + err.message);
   }
 });
@@ -517,6 +682,19 @@ async function getTenFrameDuration(sequence) {
   return await ppro.TickTime.createWithSeconds(frameSeconds * 10);
 }
 
+async function alignDurationToVideoFrames(sequence, seconds) {
+  const frameSeconds = await getSequenceFrameSeconds(sequence);
+  const safeSeconds = Math.max(frameSeconds, Number(seconds || 0));
+  // Audio is trimmed down to a complete video-frame count so Premiere cannot
+  // round the still image and audio boundary in two different directions.
+  const frameCount = Math.max(1, Math.floor((safeSeconds + 0.000001) / frameSeconds));
+  return {
+    frameCount,
+    seconds: frameCount * frameSeconds,
+    tickTime: await ppro.TickTime.createWithSeconds(frameCount * frameSeconds)
+  };
+}
+
 async function snapTickTimeToVideoFrame(sequence, tickTime) {
   const frameSeconds = await getSequenceFrameSeconds(sequence);
   const seconds = getSecondsValue(tickTime);
@@ -743,8 +921,12 @@ listen("btnBuildProject", "click", async () => {
     const tenFrameDuration = await getTenFrameDuration(sequence);
     let currentImageCount = 0;
     let currentAudioCount = 0;
+    let imageProgressIndex = 0;
 
     for (const pair of matchedPairs) {
+      await waitIfTaskPaused();
+      showTaskProgress(`Đang chuẩn bị cặp ${imageProgressIndex + 1}/${matchedPairs.length}`, pair.imageEntry ? pair.imageEntry.name : `Mốc #${pair.num}`, 5 + (imageProgressIndex / matchedPairs.length) * 80);
+      imageProgressIndex++;
       log(`\n--- Mốc #${pair.num}: ${pair.imageEntry ? pair.imageEntry.name : "THIẾU ẢNH"} <-> ${pair.audioEntry ? pair.audioEntry.name : "THIẾU AUDIO"} ---`);
 
       if (pair.imageEntry) {
@@ -789,11 +971,26 @@ listen("btnBuildProject", "click", async () => {
         }
       }
 
-      const audioDurationTickTime = rawAudioItem && rawAudioDuration && typeof rawAudioDuration.add === "function" && audioSecReal > 0
-        ? rawAudioDuration
-        : (rawAudioItem && audioSecReal > 0
-          ? await ppro.TickTime.createWithSeconds(audioSecReal)
-          : tenFrameDuration);
+      let audioDurationTickTime = tenFrameDuration;
+      if (rawAudioItem && audioSecReal > 0) {
+        const alignedDuration = await alignDurationToVideoFrames(sequence, audioSecReal);
+        audioDurationTickTime = alignedDuration.tickTime;
+        const trimmedMilliseconds = Math.max(0, (audioSecReal - alignedDuration.seconds) * 1000);
+        if (trimmedMilliseconds >= 0.5) log(`  🎯 Audio #${pair.num}: căn ${alignedDuration.frameCount} frame, cắt đuôi ${trimmedMilliseconds.toFixed(1)} ms.`);
+        try {
+          const audioClipProjItem = (ppro && ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function")
+            ? ppro.ClipProjectItem.cast(rawAudioItem)
+            : (castToClip(rawAudioItem) || rawAudioItem);
+          const zeroTime = await ppro.TickTime.createWithSeconds(0);
+          if (audioClipProjItem && typeof audioClipProjItem.createSetInOutPointsAction === "function") {
+            await runAction(project, () => audioClipProjItem.createSetInOutPointsAction(zeroTime, audioDurationTickTime), `Align audio #${pair.num}`);
+          } else if (audioClipProjItem && typeof audioClipProjItem.createSetOutPointAction === "function") {
+            await runAction(project, () => audioClipProjItem.createSetOutPointAction(audioDurationTickTime), `Align audio #${pair.num}`);
+          }
+        } catch (alignAudioError) {
+          log(`  ⚠️ Không đặt được Out Point audio #${pair.num}: ${alignAudioError.message}`);
+        }
+      }
 
       preparedPairs.push({
         pair,
@@ -828,6 +1025,7 @@ listen("btnBuildProject", "click", async () => {
     // khít tuyệt đối; mốc thiếu audio sẽ tách hai cụm bằng khoảng trắng 10 frame.
     let runStartIndex = 0;
     while (runStartIndex < preparedPairs.length) {
+      await waitIfTaskPaused();
       if (!preparedPairs[runStartIndex].rawAudioItem) {
         log(`  ⬜ [Audio #${preparedPairs[runStartIndex].pair.num}] Để trống 10 frame.`);
         runStartIndex++;
@@ -873,6 +1071,7 @@ listen("btnBuildProject", "click", async () => {
     // Chuẩn bị OutPoint cho từng ảnh trước khi chèn. Video track dùng biên frame
     // (end-exclusive), vì vậy không dùng end của ảnh trước làm start ảnh sau.
     for (const range of pairRanges) {
+      await waitIfTaskPaused();
       if (!range.rawImageItem) continue;
       try {
         const imageClipProjItem = (ppro && ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function")
@@ -896,6 +1095,7 @@ listen("btnBuildProject", "click", async () => {
     // bộ duration của audio tương ứng; các ảnh ở hai bên vẫn giữ đúng thứ tự.
     let imageRunStartIndex = 0;
     while (imageRunStartIndex < pairRanges.length) {
+      await waitIfTaskPaused();
       if (!pairRanges[imageRunStartIndex].rawImageItem) {
         log(`  ⬜ [Ảnh #${pairRanges[imageRunStartIndex].pair.num}] Để trống theo thời lượng audio.`);
         imageRunStartIndex++;
@@ -935,8 +1135,10 @@ listen("btnBuildProject", "click", async () => {
     await setTrackLockState(sequence, "audio", AUDIO_TRACK_INDEX, false);
 
     log("\n🎉 HOÀN TẤT DỰNG PROJECT (ẢNH + ÂM THANH)!");
+    finishTask(`Đã dựng ${matchedPairs.length} cặp ảnh và âm thanh.`, imageScanHasMissing ? "warning" : "success");
   } catch (err) {
     log("❌ Lỗi khi dựng project (ảnh): " + err.message);
+    finishTask(err.message, "error");
   }
 });
 
@@ -998,11 +1200,13 @@ async function autoCheckFfmpeg(silent = true) {
     const badgeFfmpegStatusEl = getEl("badgeFfmpegStatus");
     if (versionMatch) {
       if (badgeFfmpegStatusEl) {
-        badgeFfmpegStatusEl.textContent = `OK: ${versionMatch[1]}`;
+        badgeFfmpegStatusEl.textContent = "Sẵn sàng";
+        badgeFfmpegStatusEl.title = `FFmpeg ${versionMatch[1]}`;
         badgeFfmpegStatusEl.classList.add("success");
         badgeFfmpegStatusEl.classList.remove("error");
       }
       if (!silent) log(`✅ Đã kết nối FFmpeg — Phiên bản: ${versionMatch[1]}`);
+      setSystemState("ffmpeg", "Sẵn sàng", "success");
       return true;
     } else {
       if (badgeFfmpegStatusEl) {
@@ -1010,6 +1214,7 @@ async function autoCheckFfmpeg(silent = true) {
         badgeFfmpegStatusEl.classList.remove("success");
         badgeFfmpegStatusEl.classList.add("error");
       }
+      setSystemState("ffmpeg", "Không xác định", "warning");
       return false;
     }
   } catch (err) {
@@ -1020,6 +1225,7 @@ async function autoCheckFfmpeg(silent = true) {
       badgeFfmpegStatusEl.classList.add("error");
     }
     if (!silent) log(`❌ LỖI kết nối FFmpeg: ${err.message}`);
+    setSystemState("ffmpeg", "Lỗi", "error");
     return false;
   }
 }
@@ -1115,7 +1321,7 @@ async function runFfmpegSpeedMatch(videoPath, outputEntry, ptsFactor) {
     "-crf", "18",
     outputEntry.nativePath
   ];
-  const result = await runFfmpegProcess(getFfmpegPath(), args);
+  const result = await runFfmpegProcess(getFfmpegPath(), args, 300000);
   if (result.exitCode !== 0) {
     throw new Error(`FFmpeg loi (exitCode=${result.exitCode}):\n${(result.stderr || "").slice(-600)}`);
   }
@@ -1188,8 +1394,12 @@ listen("btnBuildProjectVideo", "click", async () => {
     let currentAudioCount = 0;
     const tenFrameDuration = await getTenFrameDuration(sequence);
     const tenFrameSec = getSecondsValue(tenFrameDuration);
+    let videoProgressIndex = 0;
 
     for (const pair of matchedPairsVideo) {
+      await waitIfTaskPaused();
+      showTaskProgress(`Đang xử lý video ${videoProgressIndex + 1}/${matchedPairsVideo.length}`, pair.videoEntry ? pair.videoEntry.name : `Mốc #${pair.num}`, 5 + (videoProgressIndex / matchedPairsVideo.length) * 90);
+      videoProgressIndex++;
       log(`\n--- Mốc #${pair.num}: ${pair.videoEntry ? pair.videoEntry.name : "THIẾU VIDEO"} <-> ${pair.audioEntry ? pair.audioEntry.name : "THIẾU AUDIO"} ---`);
 
       let videoDurSec = 0;
@@ -1308,8 +1518,10 @@ listen("btnBuildProjectVideo", "click", async () => {
     }
 
     log("\n🎉 HOÀN TẤT DỰNG PROJECT (VIDEO + ÂM THANH)!");
+    finishTask(`Đã dựng ${matchedPairsVideo.length} cặp video và âm thanh.`, videoScanHasMissing ? "warning" : "success");
   } catch (err) {
     log("❌ Lỗi khi dựng project (video): " + err.message);
+    finishTask(err.message, "error");
   }
 });
 
@@ -1383,6 +1595,47 @@ async function waitForImportedEntry(bin, entry, attempts = 16) {
   return null;
 }
 
+function hashMusicCacheKey(value) {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+async function getMusicCacheDescriptor(entry, targetLufs, maximumDuration) {
+  let size = 0;
+  let modified = 0;
+  try {
+    const metadata = await entry.getMetadata();
+    size = Number(metadata && metadata.size) || 0;
+    modified = metadata && metadata.dateModified ? new Date(metadata.dateModified).getTime() : 0;
+  } catch (e) {}
+  // A 30-second bucket avoids reprocessing when the timeline end changes only
+  // slightly, while still preventing unnecessarily huge temporary outputs.
+  const durationBucket = Math.max(30, Math.ceil(Number(maximumDuration || 0) / 30) * 30);
+  const fingerprint = hashMusicCacheKey(`v2|${entry.nativePath}|${size}|${modified}|${targetLufs}`);
+  return {
+    durationBucket,
+    fileName: `htm_${fingerprint}_${Math.abs(targetLufs)}lufs_${durationBucket}s.wav`
+  };
+}
+
+async function findValidMusicCache(folder, fileName) {
+  try {
+    if (localStorage.getItem(`htMusicCache:${fileName}`) !== "complete") return null;
+    const entries = await folder.getEntries();
+    const cached = entries.find((item) => item.isFile && item.name.toLowerCase() === fileName.toLowerCase());
+    if (!cached) return null;
+    const metadata = await cached.getMetadata();
+    return Number(metadata && metadata.size) > 44 ? cached : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 listen("btnPickMusicFolder", "click", async () => {
   try {
     const folder = await fs.getFolder();
@@ -1399,26 +1652,59 @@ listen("btnPickMusicFolder", "click", async () => {
   } catch (err) { log(`❌ Lỗi chọn thư mục nhạc: ${err.message}`); }
 });
 
-async function normalizeMusic(entry, index, targetLufs) {
+async function normalizeMusic(entry, index, targetLufs, maximumDuration = 0) {
   if (!normalizedMusicFolder) normalizedMusicFolder = await ensureChildFolder(musicFolder, "_ht_audio_normalized");
-  const base = entry.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "_").slice(0, 60) || `music_${index + 1}`;
-  const output = await normalizedMusicFolder.createFile(`${String(index + 1).padStart(3, "0")}_${base}_${Math.abs(targetLufs)}LUFS.m4a`, { overwrite: true });
-  const result = await runFfmpegProcess(getFfmpegPath(), ["-y", "-i", entry.nativePath, "-vn", "-af", `loudnorm=I=${targetLufs}:TP=-2:LRA=11`, "-c:a", "aac", "-b:a", "192k", output.nativePath]);
-  if (result.exitCode !== 0) throw new Error((result.stderr || "FFmpeg normalization failed").slice(-700));
+  const cache = await getMusicCacheDescriptor(entry, targetLufs, maximumDuration);
+  const cached = await findValidMusicCache(normalizedMusicFolder, cache.fileName);
+  if (cached) {
+    log(`  ⚡ Cache LUFS: ${entry.name}`);
+    return cached;
+  }
+  const output = await normalizedMusicFolder.createFile(cache.fileName, { overwrite: true });
+  const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i", entry.nativePath, "-vn", "-af", `loudnorm=I=${targetLufs}:TP=-2:LRA=11`];
+  args.push("-t", cache.durationBucket.toFixed(3));
+  args.push("-ar", "48000", "-c:a", "pcm_s16le", output.nativePath);
+  const timeoutMs = Math.min(1800000, Math.max(120000, cache.durationBucket * 2000 + 30000));
+  const result = await runProcessWithHeartbeat(getFfmpegPath(), args, timeoutMs, `Đang chuẩn hóa nhạc ${index + 1}`, entry.name, 5);
+  if (result.exitCode !== 0) {
+    try { await output.delete(); } catch (e) {}
+    throw new Error((result.stderr || "FFmpeg normalization failed").slice(-700));
+  }
+  localStorage.setItem(`htMusicCache:${cache.fileName}`, "complete");
   return output;
+}
+
+async function prepareMusicTrack(sequence, trackIndex) {
+  const count = typeof sequence.getAudioTrackCount === "function" ? await sequence.getAudioTrackCount() : 0;
+  if (trackIndex >= count) {
+    throw new Error(`Timeline chỉ có ${count} audio track. Hãy tạo A${trackIndex + 1} hoặc chọn track thấp hơn.`);
+  }
+  await ensureTrackUnlocked(sequence, "audio", trackIndex);
+  if (typeof sequence.getAudioTrack === "function") {
+    const track = await sequence.getAudioTrack(trackIndex);
+    if (track && typeof track.isMuted === "function" && await track.isMuted()) {
+      if (typeof track.setMute === "function") await track.setMute(false);
+      if (typeof track.setMute !== "function" || await track.isMuted()) {
+        throw new Error(`A${trackIndex + 1} đang tắt tiếng và không thể tự bật lại.`);
+      }
+      log(`  🔊 Đã bật tiếng cho A${trackIndex + 1}.`);
+    }
+  }
 }
 
 listen("btnBuildMusic", "click", async () => {
   try {
     if (!musicFolder || !musicEntries.length) throw new Error("Hãy chọn thư mục có ít nhất một bài nhạc.");
     const target = Number(getEl("inputMusicLufs").value);
-    if (!Number.isFinite(target) || target < -26 || target > -24) throw new Error("Loudness phải nằm trong khoảng -26 đến -24 LUFS.");
+    const normalizeBeforeImport = !!(getEl("checkMusicNormalize") && getEl("checkMusicNormalize").checked);
+    if (normalizeBeforeImport && (!Number.isFinite(target) || target < -26 || target > -24)) throw new Error("Loudness phải nằm trong khoảng -26 đến -24 LUFS.");
     const audioTrack = Math.max(1, Number(getEl("inputMusicTrack").value || 2) - 1);
     if (!ppro) ppro = require("premierepro");
     const project = await ppro.Project.getActiveProject();
     if (!project) throw new Error("Không có project đang mở.");
     const sequence = await resolveSequence(project);
     if (!sequence) throw new Error("Không tìm thấy timeline.");
+    await prepareMusicTrack(sequence, audioTrack);
     const sequenceFrameRate = await getSequenceFrameRate(sequence);
     const fps = Number(sequenceFrameRate.value);
     const start = parseTimelineInput(getEl("inputMusicStart").value, fps);
@@ -1429,20 +1715,38 @@ listen("btnBuildMusic", "click", async () => {
     const bin = await ensureBin(project, root, "Background Music");
     const editor = await ppro.SequenceEditor.getEditor(sequence);
     const prepared = [];
-    log(`🎚️ Đang chuẩn hóa ${musicEntries.length} bài về ${target} LUFS...`);
+    const requiredDuration = end - start;
+    let preparedDuration = 0;
+    log(normalizeBeforeImport
+      ? `🎚️ Đang chuẩn hóa tối đa ${musicEntries.length} bài về ${target} LUFS, đủ cho ${requiredDuration.toFixed(2)}s...`
+      : `⚡ Đang thêm trực tiếp tối đa ${musicEntries.length} bài, không chờ chuẩn hóa...`);
     for (let i = 0; i < musicEntries.length; i++) {
-      const output = await normalizeMusic(musicEntries[i], i, target);
-      await project.importFiles([output.nativePath], true, bin, false);
-      const item = await waitForImportedEntry(bin, output);
-      const duration = await probeDurationSeconds(output.nativePath);
-      if (item && duration > 0) prepared.push({ item, duration });
+      await waitIfTaskPaused();
+      showTaskProgress(normalizeBeforeImport ? `Đang chuẩn hóa nhạc ${i + 1}/${musicEntries.length}` : `Đang nhập nhạc ${i + 1}/${musicEntries.length}`, musicEntries[i].name, 5 + (i / musicEntries.length) * 70);
+      const source = normalizeBeforeImport
+        ? await normalizeMusic(musicEntries[i], i, target, Math.max(0.001, requiredDuration - preparedDuration))
+        : musicEntries[i];
+      await project.importFiles([source.nativePath], true, bin, false);
+      const item = await waitForImportedEntry(bin, source);
+      const clipItem = castToClip(item) || item;
+      let duration = getSecondsValue(await getDurationFromClipItem(clipItem));
+      if (duration <= 0) duration = await probeDurationSeconds(source.nativePath);
+      if (item && duration > 0) {
+        prepared.push({ item, duration });
+        preparedDuration += duration;
+      }
       log(`  ✅ ${musicEntries[i].name}`);
+      if (preparedDuration >= requiredDuration - 0.001) {
+        log(`  ⚡ Đã đủ ${requiredDuration.toFixed(2)}s; bỏ qua ${musicEntries.length - i - 1} bài không cần nhập.`);
+        break;
+      }
     }
     if (!prepared.length) throw new Error("Không import được nhạc đã chuẩn hóa.");
     let cursor = start;
     let index = 0;
     const loop = !!getEl("checkMusicLoop").checked;
     while (cursor < end - 0.001) {
+      await waitIfTaskPaused();
       const music = prepared[index];
       const used = Math.min(music.duration, end - cursor);
       const clip = castToClip(music.item) || music.item;
@@ -1457,7 +1761,8 @@ listen("btnBuildMusic", "click", async () => {
       if (index >= prepared.length) { if (!loop) break; index = 0; }
     }
     log(`🎉 Đã thêm nhạc nền trên A${audioTrack + 1}, từ ${start.toFixed(2)}s đến ${Math.min(cursor, end).toFixed(2)}s.`);
-  } catch (err) { log(`❌ Lỗi thêm nhạc nền: ${err.message}`); }
+    finishTask(`Đã thêm nhạc nền vào A${audioTrack + 1}.`, "success");
+  } catch (err) { log(`❌ Lỗi thêm nhạc nền: ${err.message}`); finishTask(err.message, "error"); }
 });
 
 function renderOverlayRows() {
@@ -1615,7 +1920,9 @@ listen("btnBuildOverlays", "click", async () => {
     const sequenceEnd = await getSequenceEndSeconds(sequence);
     let occurrenceCount = 0;
     for (let i = 0; i < overlayEntries.length; i++) {
+      await waitIfTaskPaused();
       const row = overlayEntries[i];
+      showTaskProgress(`Đang thêm overlay ${i + 1}/${overlayEntries.length}`, row.entry.name, 5 + (i / overlayEntries.length) * 90);
       const sourceDuration = await probeDurationSeconds(row.entry.nativePath);
       const duration = String(row.duration).trim() ? parseTimelineInput(row.duration, fps) : sourceDuration;
       let startFrames = [];
@@ -1643,6 +1950,7 @@ listen("btnBuildOverlays", "click", async () => {
       if (typeof clip.createSetInOutPointsAction === "function") await runAction(project, () => clip.createSetInOutPointsAction(zero, out), `Trim overlay ${i + 1}`);
       else if (typeof clip.createSetOutPointAction === "function") await runAction(project, () => clip.createSetOutPointAction(out), `Trim overlay ${i + 1}`);
       for (const frameNumber of startFrames) {
+        await waitIfTaskPaused();
         const at = await ppro.TickTime.createWithFrameAndFrameRate(frameNumber, sequenceFrameRate);
         await runAction(project, () => editor.createOverwriteItemAction(raw, at, videoTrack, 0), `Add overlay ${i + 1}`);
         await new Promise((resolve) => setTimeout(resolve, 120));
@@ -1662,5 +1970,608 @@ listen("btnBuildOverlays", "click", async () => {
       }
     }
     log(`🎉 Đã thêm ${occurrenceCount} lần xuất hiện overlay bằng Overwrite, timeline không bị ripple.`);
-  } catch (err) { log(`❌ Lỗi thêm overlay: ${err.message}`); }
+    finishTask(`Đã thêm ${occurrenceCount} lần xuất hiện overlay.`, "success");
+  } catch (err) { log(`❌ Lỗi thêm overlay: ${err.message}`); finishTask(err.message, "error"); }
 });
+
+// ==========================================================================
+// ---- Auto Subtitle: transcribe every enabled clip on audio track A1 ----
+// ==========================================================================
+let whisperExePath = "";
+let whisperModelPath = "";
+let subtitleOutputFolder = null;
+let detectedLogicalProcessors = 0;
+let whisperBackend = "CPU";
+let subtitleMachineProfile = { physicalMemoryGB: 0, gpuMemoryMB: 0, runtimeDriveFreeGB: 0 };
+let subtitleTempPaths = [];
+const HT_AUTOMATION_VERSION = "5.7.7";
+let latestDiagnostics = null;
+
+function trackSubtitleTemp(entryOrPath) {
+  const path = typeof entryOrPath === "string" ? entryOrPath : (entryOrPath && entryOrPath.nativePath);
+  if (path && !subtitleTempPaths.includes(path)) subtitleTempPaths.push(path);
+  return entryOrPath;
+}
+
+async function cleanupSubtitleTempFiles(includeOld = false) {
+  let paths = subtitleTempPaths.slice();
+  if (includeOld && subtitleOutputFolder) {
+    try {
+      const entries = await subtitleOutputFolder.getEntries();
+      paths = paths.concat(entries.filter((entry) => entry.isFile && /^ht_sub_.*\.(wav|json|txt)$/i.test(entry.name)).map((entry) => entry.nativePath));
+    } catch (e) {}
+  }
+  paths = Array.from(new Set(paths));
+  if (!paths.length) return 0;
+  try {
+    const response = await fetch("http://127.0.0.1:19888/cleanup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    subtitleTempPaths = [];
+    return Number(result.removed) || 0;
+  } catch (e) {
+    log(`⚠️ Chưa dọn được file subtitle tạm: ${e.message}`);
+    return 0;
+  }
+}
+
+async function autoDetectWhisper() {
+  try {
+    const response = await fetch("http://127.0.0.1:19888/health");
+    if (!response.ok) return false;
+    const health = await response.json();
+    if (String(health.bridgeVersion || "") !== HT_AUTOMATION_VERSION) {
+      log(`⚠️ Bridge ${health.bridgeVersion || "cũ"} không khớp Plugin ${HT_AUTOMATION_VERSION}. Hãy đóng Premiere và chạy SUA_CHUA.bat.`);
+      setSystemState("whisper", "Cần Repair", "error");
+      return false;
+    }
+    detectedLogicalProcessors = Math.max(0, Number(health.logicalProcessors) || 0);
+    whisperBackend = String(health.whisperBackend || "CPU");
+    subtitleMachineProfile = {
+      cpuName: String(health.cpuName || ""),
+      physicalMemoryGB: Math.max(0, Number(health.physicalMemoryGB) || 0),
+      gpuName: String(health.gpuName || ""),
+      gpuMemoryMB: Math.max(0, Number(health.gpuMemoryMB) || 0),
+      runtimeDriveFreeGB: Math.max(0, Number(health.runtimeDriveFreeGB) || 0)
+    };
+    if (health.whisperExe) {
+      whisperExePath = health.whisperExe;
+      getEl("pathWhisperExe").textContent = whisperExePath;
+      getEl("pathWhisperExe").classList.add("selected");
+    }
+    if (health.whisperModel) {
+      whisperModelPath = health.whisperModel;
+      getEl("pathWhisperModel").textContent = whisperModelPath;
+      getEl("pathWhisperModel").classList.add("selected");
+    }
+    if (whisperExePath && whisperModelPath) {
+      getEl("badgeSubtitleStatus").textContent = whisperBackend.toUpperCase().includes("CUDA") ? "Whisper GPU" : "Whisper CPU";
+      setSystemState("whisper", whisperBackend.toUpperCase().includes("CUDA") ? `GPU · ${whisperBackend}` : "CPU · Sẵn sàng", "success");
+    } else {
+      setSystemState("whisper", "Thiếu cấu hình", "warning");
+    }
+    return Boolean(whisperExePath && whisperModelPath);
+  } catch (e) { setSystemState("whisper", "Bridge lỗi", "error"); return false; }
+}
+
+async function collectSystemDiagnostics() {
+  const startedAt = new Date().toISOString();
+  const report = { product: "HT_Automation", pluginVersion: HT_AUTOMATION_VERSION, testedAt: startedAt };
+  try {
+    const response = await fetch("http://127.0.0.1:19888/health");
+    report.bridge = response.ok ? await response.json() : { error: `HTTP ${response.status}` };
+  } catch (e) { report.bridge = { error: e.message }; }
+  try {
+    if (report.bridge && report.bridge.whisperExe) {
+      const whisper = await runFfmpegProcess(report.bridge.whisperExe, ["--version"], 15000);
+      report.whisperTest = { exitCode: whisper.exitCode, output: `${whisper.stdout || ""}\n${whisper.stderr || ""}`.trim().slice(0, 2000) };
+    } else report.whisperTest = { error: "Không tìm thấy whisper-cli.exe" };
+  } catch (e) { report.whisperTest = { error: e.message }; }
+  try {
+    const ffmpeg = await runFfmpegProcess("", ["-version"], 15000);
+    report.ffmpegTest = { exitCode: ffmpeg.exitCode, output: `${ffmpeg.stdout || ""}\n${ffmpeg.stderr || ""}`.trim().slice(0, 1000) };
+  } catch (e) { report.ffmpegTest = { error: e.message }; }
+  report.compatible = Boolean(report.bridge && report.bridge.status === "ok" && String(report.bridge.bridgeVersion || "") === HT_AUTOMATION_VERSION && report.whisperTest && report.whisperTest.exitCode === 0 && report.ffmpegTest && report.ffmpegTest.exitCode === 0);
+  latestDiagnostics = report;
+  const summary = getEl("diagnosticsSummary");
+  if (summary) summary.textContent = report.compatible ? `Sẵn sàng · Bridge ${report.bridge.bridgeVersion} · ${report.bridge.whisperBackend}` : "Phát hiện lỗi. Hãy xuất báo cáo hoặc chạy SUA_CHUA.bat.";
+  log(report.compatible ? `✅ Chẩn đoán đạt: Bridge ${report.bridge.bridgeVersion} · ${report.bridge.whisperBackend}.` : "❌ Chẩn đoán chưa đạt; xem báo cáo trong tab Cài đặt.");
+  return report;
+}
+
+listen("btnRunDiagnostics", "click", collectSystemDiagnostics);
+listen("btnExportDiagnostics", "click", async () => {
+  try {
+    const report = latestDiagnostics || await collectSystemDiagnostics();
+    const folder = await fs.getFolder();
+    if (!folder) return;
+    const file = await folder.createFile(`HT_Automation_Diagnostics_${Date.now()}.json`, { overwrite: true });
+    await file.write(JSON.stringify(report, null, 2), { format: storage.formats.utf8 });
+    log(`✅ Đã xuất báo cáo: ${file.nativePath}`);
+  } catch (e) { log(`❌ Không xuất được báo cáo: ${e.message}`); }
+});
+
+async function verifyWhisperRuntime() {
+  if (!whisperExePath) throw new Error("Không tìm thấy whisper-cli.exe. Hãy chạy lại bộ cài một click.");
+  const check = await runFfmpegProcess(whisperExePath, ["--version"]);
+  const diagnostic = `${check.stdout || ""}\n${check.stderr || ""}`;
+  if (check.exitCode !== 0) throw new Error(`Whisper không khởi động được trên máy này. Hãy chạy lại bộ cài để tự chuyển GPU/CPU. ${diagnostic.slice(0, 240)}`);
+  if (whisperBackend.toUpperCase().includes("CUDA") && !/CUDA|ggml-cuda/i.test(diagnostic)) {
+    throw new Error("Whisper CUDA không nhận được GPU. Hãy chạy lại bộ cài một click để tự chuyển sang CPU.");
+  }
+  return true;
+}
+setTimeout(() => autoDetectWhisper(), 800);
+setTimeout(async () => {
+  try {
+    if (!ppro) ppro = require("premierepro");
+    const project = await ppro.Project.getActiveProject();
+    setSystemState("premiere", project ? "Sẵn sàng" : "Chưa mở Project", project ? "success" : "warning");
+  } catch (e) { setSystemState("premiere", "Lỗi", "error"); }
+  if (typeof autoCheckFfmpeg === "function") autoCheckFfmpeg(true);
+}, 650);
+
+async function pickSubtitleFile(target, extensions) {
+  const entry = await fs.getFileForOpening({ types: extensions, allowMultiple: false });
+  if (!entry) return null;
+  getEl(target).textContent = entry.nativePath;
+  getEl(target).classList.add("selected");
+  return entry;
+}
+
+listen("btnPickWhisperExe", "click", async () => {
+  try { const entry = await pickSubtitleFile("pathWhisperExe", ["exe"]); if (entry) whisperExePath = entry.nativePath; }
+  catch (e) { log(`❌ Không chọn được whisper-cli.exe: ${e.message}`); }
+});
+
+listen("btnPickWhisperModel", "click", async () => {
+  try { const entry = await pickSubtitleFile("pathWhisperModel", ["bin"]); if (entry) whisperModelPath = entry.nativePath; }
+  catch (e) { log(`❌ Không chọn được model Whisper: ${e.message}`); }
+});
+
+listen("btnPickSubtitleOutput", "click", async () => {
+  try {
+    subtitleOutputFolder = await fs.getFolder();
+    if (subtitleOutputFolder) {
+      getEl("pathSubtitleOutput").textContent = subtitleOutputFolder.nativePath;
+      getEl("pathSubtitleOutput").classList.add("selected");
+      try {
+        if (typeof fs.createPersistentToken === "function") localStorage.setItem("htSubtitleOutputToken", await fs.createPersistentToken(subtitleOutputFolder));
+      } catch (ignored) {}
+    }
+  } catch (e) { log(`❌ Không chọn được thư mục đầu ra: ${e.message}`); }
+});
+
+setTimeout(async () => {
+  try {
+    const token = localStorage.getItem("htSubtitleOutputToken");
+    if (token && typeof fs.getEntryForPersistentToken === "function") {
+      subtitleOutputFolder = await fs.getEntryForPersistentToken(token);
+      if (subtitleOutputFolder) {
+        getEl("pathSubtitleOutput").textContent = subtitleOutputFolder.nativePath;
+        getEl("pathSubtitleOutput").classList.add("selected");
+      }
+    }
+  } catch (e) {}
+}, 300);
+
+function secondsToSrt(value) {
+  const total = Math.max(0, Math.round(Number(value || 0) * 1000));
+  const ms = total % 1000;
+  const whole = Math.floor(total / 1000);
+  const sec = whole % 60;
+  const min = Math.floor(whole / 60) % 60;
+  const hour = Math.floor(whole / 3600);
+  return `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")},${String(ms).padStart(3, "0")}`;
+}
+
+function fitSubtitleSegmentsToLines(segments, maximum, maxLines) {
+  const result = [];
+  for (const segment of segments) {
+    const clean = String(segment.text || "").replace(/\s+/g, " ").trim();
+    if (!clean) continue;
+    const words = clean.split(" ");
+    const wrappedLines = [];
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && candidate.length > maximum) { wrappedLines.push(line); line = word; }
+      else line = candidate;
+    }
+    if (line) wrappedLines.push(line);
+    const chunks = [];
+    for (let i = 0; i < wrappedLines.length; i += maxLines) chunks.push(wrappedLines.slice(i, i + maxLines).join("\n"));
+    if (chunks.length === 1) {
+      result.push({ start: segment.start, end: segment.end, text: chunks[0] });
+      continue;
+    }
+    const duration = Math.max(0, segment.end - segment.start);
+    const weights = chunks.map((value) => Math.max(1, value.length));
+    const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+    let cursor = segment.start;
+    chunks.forEach((value, index) => {
+      const end = index === chunks.length - 1 ? segment.end : cursor + duration * (weights[index] / totalWeight);
+      result.push({ start: cursor, end, text: value });
+      cursor = end;
+    });
+  }
+  return result;
+}
+
+function whisperTimeSeconds(value) {
+  if (typeof value === "number") return value > 10000 ? value / 1000 : value;
+  const text = String(value || "").trim();
+  const match = text.match(/(\d+):(\d+):(\d+)[,.](\d+)/);
+  if (match) return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(`0.${match[4]}`);
+  return Number(text) || 0;
+}
+
+function parseWhisperSegments(data) {
+  const source = Array.isArray(data) ? data : (data.transcription || data.segments || []);
+  return source.map((item) => {
+    const offsets = item.offsets || {};
+    const stamps = item.timestamps || {};
+    const startRaw = item.start !== undefined ? item.start : (offsets.from !== undefined ? offsets.from : stamps.from);
+    const endRaw = item.end !== undefined ? item.end : (offsets.to !== undefined ? offsets.to : stamps.to);
+    let start = whisperTimeSeconds(startRaw);
+    let end = whisperTimeSeconds(endRaw);
+    if (offsets.from !== undefined) start = Number(offsets.from) / 1000;
+    if (offsets.to !== undefined) end = Number(offsets.to) / 1000;
+    return { start, end, text: String(item.text || item.content || "").trim() };
+  }).filter((item) => item.text && item.end > item.start);
+}
+
+async function findOutputEntry(name) {
+  const entries = await subtitleOutputFolder.getEntries();
+  return entries.find((entry) => entry.isFile && entry.name.toLowerCase() === name.toLowerCase()) || null;
+}
+
+async function getA1Clips(sequence) {
+  if (!sequence || typeof sequence.getAudioTrack !== "function") throw new Error("Premiere không cung cấp API đọc track audio.");
+  const track = await sequence.getAudioTrack(0);
+  if (!track) throw new Error("Timeline không có track A1.");
+  const clipType = ppro.Constants && ppro.Constants.TrackItemType ? ppro.Constants.TrackItemType.CLIP : 1;
+  const items = await track.getTrackItems(clipType, false);
+  const result = [];
+  let skipped = 0;
+  for (const item of items || []) {
+    try {
+      if (typeof item.isDisabled === "function" && await item.isDisabled()) { skipped++; continue; }
+      const projectItem = await item.getProjectItem();
+      const clipItem = ppro.ClipProjectItem && typeof ppro.ClipProjectItem.cast === "function" ? ppro.ClipProjectItem.cast(projectItem) : projectItem;
+      const mediaPath = await clipItem.getMediaFilePath();
+      const timelineStart = getSecondsValue(await item.getStartTime());
+      const timelineEnd = getSecondsValue(await item.getEndTime());
+      const sourceIn = getSecondsValue(await item.getInPoint());
+      const sourceOut = getSecondsValue(await item.getOutPoint());
+      if (mediaPath && timelineEnd > timelineStart && sourceOut > sourceIn) result.push({ mediaPath, timelineStart, timelineEnd, sourceIn, sourceOut });
+    } catch (e) { skipped++; log(`  ⚠️ Bỏ qua một clip A1 không đọc được nguồn: ${e.message}`); }
+  }
+  result.sort((a, b) => a.timelineStart - b.timelineStart);
+  result.skipped = skipped;
+  result.total = (items || []).length || result.length + skipped;
+  return result;
+}
+
+let scannedA1Clips = [];
+function formatClockDuration(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds || 0)));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  return hours > 0 ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}` : `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+async function scanA1ForSubtitle() {
+  const validation = getEl("subtitleValidation");
+  if (validation) validation.style.display = "none";
+  try {
+    showTaskProgress("Đang quét track A1", "Đọc audio clip trên timeline...", 20);
+    if (!ppro) ppro = require("premierepro");
+    const project = await ppro.Project.getActiveProject();
+    if (!project) throw new Error("Hãy mở một Project trong Premiere Pro.");
+    const sequence = await resolveSequence(project);
+    if (!sequence) throw new Error("Hãy chọn một timeline hiện có.");
+    scannedA1Clips = await getA1Clips(sequence);
+    if (!scannedA1Clips.length) throw new Error("Track A1 không có audio clip hợp lệ.");
+    const duration = scannedA1Clips.reduce((sum, clip) => sum + (clip.timelineEnd - clip.timelineStart), 0);
+    getEl("subtitleClipCount").textContent = `${scannedA1Clips.length} clip hợp lệ`;
+    getEl("subtitleDuration").textContent = formatClockDuration(duration);
+    getEl("subtitleScanDetail").textContent = scannedA1Clips.skipped ? `Bỏ qua ${scannedA1Clips.skipped} clip bị tắt, offline hoặc không đọc được nguồn.` : "Tất cả clip A1 đều sẵn sàng nhận dạng.";
+    getEl("subtitleEmptyState").style.display = "none";
+    getEl("subtitleA1Summary").style.display = "flex";
+    getEl("badgeSubtitleStatus").textContent = `${scannedA1Clips.length} clip`;
+    finishTask(`Đã quét A1: ${scannedA1Clips.length} clip · ${formatClockDuration(duration)}.`, scannedA1Clips.skipped ? "warning" : "success");
+    return scannedA1Clips;
+  } catch (e) {
+    scannedA1Clips = [];
+    finishTask(e.message, "error");
+    return [];
+  }
+}
+
+listen("btnScanA1", "click", scanA1ForSubtitle);
+listen("btnRescanA1", "click", scanA1ForSubtitle);
+
+function validateSubtitleRequest() {
+  const errors = [];
+  if (!scannedA1Clips.length) errors.push("Hãy quét A1 trước khi tạo subtitle.");
+  if (!whisperExePath) errors.push("Whisper CLI chưa sẵn sàng; kiểm tra trong Cài đặt.");
+  if (!whisperModelPath) errors.push("Model Whisper chưa sẵn sàng; kiểm tra trong Cài đặt.");
+  if (!subtitleOutputFolder) errors.push("Hãy chọn thư mục lưu WAV và SRT.");
+  const lineLength = Number(getEl("inputSubtitleLineLength").value);
+  if (!Number.isFinite(lineLength) || lineLength < 20 || lineLength > 80) errors.push("Độ dài dòng phải từ 20 đến 80 ký tự.");
+  const box = getEl("subtitleValidation");
+  if (box) {
+    box.textContent = errors.join(" ");
+    box.style.display = errors.length ? "block" : "none";
+  }
+  return errors;
+}
+
+async function transcribeA1Clip(clip, index, language) {
+  const stem = `ht_sub_${Date.now()}_${String(index + 1).padStart(3, "0")}`;
+  const wavName = `${stem}.wav`;
+  const wavEntry = await subtitleOutputFolder.createFile(wavName, { overwrite: true });
+  trackSubtitleTemp(wavEntry);
+  const sourceDuration = clip.sourceOut - clip.sourceIn;
+  const ffmpeg = await runProcessWithHeartbeat(getFfmpegPath(), ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-ss", String(clip.sourceIn), "-t", String(sourceDuration), "-i", clip.mediaPath, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wavEntry.nativePath], 60000, `Đang chuẩn hóa clip ${index + 1}`, clip.mediaPath, 6);
+  if (ffmpeg.exitCode !== 0) throw new Error(`FFmpeg không tách được audio clip ${index + 1}: ${ffmpeg.stderr || "unknown error"}`);
+  const prefix = `${subtitleOutputFolder.nativePath}\\${stem}`;
+  trackSubtitleTemp(`${prefix}.json`);
+  const whisperArgs = ["-m", whisperModelPath, "-f", wavEntry.nativePath, "-l", language || "auto", "-t", String(getWhisperThreadCount())];
+  if (whisperBackend.toUpperCase().includes("CUDA")) whisperArgs.push("-fa");
+  else whisperArgs.push("-ng");
+  whisperArgs.push("-oj", "-of", prefix);
+  const result = await runFfmpegProcess(whisperExePath, whisperArgs);
+  if (result.exitCode !== 0) throw new Error(`Whisper lỗi ở clip ${index + 1}: ${result.stderr || result.stdout || "unknown error"}`);
+  const jsonEntry = await findOutputEntry(`${stem}.json`);
+  if (!jsonEntry) throw new Error(`Whisper chưa tạo ${stem}.json.`);
+  const segments = parseWhisperSegments(JSON.parse(await jsonEntry.read()));
+  const timelineDuration = clip.timelineEnd - clip.timelineStart;
+  const ratio = sourceDuration > 0 ? timelineDuration / sourceDuration : 1;
+  return segments.map((segment) => ({
+    start: clip.timelineStart + segment.start * ratio,
+    end: Math.min(clip.timelineEnd, clip.timelineStart + segment.end * ratio),
+    text: segment.text
+  })).filter((segment) => segment.end > segment.start);
+}
+
+function getWhisperThreadCount() {
+  const browserReported = Number(typeof navigator !== "undefined" ? navigator.hardwareConcurrency : 0) || 0;
+  const available = detectedLogicalProcessors || browserReported || 4;
+  return Math.max(2, Math.min(16, Math.floor(available * 0.75)));
+}
+
+function getAdaptiveSubtitleGroupSize() {
+  const memoryGB = Number(subtitleMachineProfile.physicalMemoryGB) || 0;
+  const processors = detectedLogicalProcessors || 4;
+  const freeGB = Number(subtitleMachineProfile.runtimeDriveFreeGB) || 0;
+  if ((memoryGB > 0 && memoryGB < 8) || processors <= 4 || (freeGB > 0 && freeGB < 5)) return 6;
+  if ((memoryGB > 0 && memoryGB < 16) || processors <= 8 || (freeGB > 0 && freeGB < 12)) return 12;
+  if (memoryGB >= 32 && processors >= 16) return 28;
+  return 20;
+}
+
+function logSubtitleMachineProfile() {
+  const profile = subtitleMachineProfile;
+  const backend = whisperBackend.toUpperCase().includes("CUDA") ? `${whisperBackend}${profile.gpuName ? ` · ${profile.gpuName}` : ""}` : "CPU";
+  const parts = [
+    `${detectedLogicalProcessors || "?"} luồng CPU`,
+    profile.physicalMemoryGB ? `${profile.physicalMemoryGB} GB RAM` : null,
+    backend,
+    profile.runtimeDriveFreeGB ? `${profile.runtimeDriveFreeGB} GB trống` : null,
+    `nhóm ${getAdaptiveSubtitleGroupSize()} clip`
+  ].filter(Boolean);
+  log(`🧭 Tự tối ưu máy: ${parts.join(" · ")}.`);
+}
+
+async function runWhisperWithProgress(args, audioDuration, startPercent, endPercent, detail) {
+  const threads = getWhisperThreadCount();
+  const startedAt = Date.now();
+  const from = Number(startPercent || 48);
+  const to = Math.max(from + 1, Number(endPercent || 92));
+  const usingGpu = whisperBackend.toUpperCase().includes("CUDA");
+  const estimatedSeconds = Math.max(usingGpu ? 8 : 20, Number(audioDuration || 0) * (usingGpu ? 0.08 : 0.55) * (usingGpu ? 1 : (4 / Math.max(1, threads))));
+  const update = () => {
+    const elapsed = Math.max(0, (Date.now() - startedAt) / 1000);
+    const ratio = Math.min(0.97, elapsed / estimatedSeconds);
+    const percent = from + (to - from) * ratio;
+    showTaskProgress(usingGpu ? "Whisper đang nhận dạng bằng GPU" : "Whisper đang nhận dạng · tiến độ ước tính", `${detail} · ${usingGpu ? whisperBackend : `${threads} luồng CPU`} · đã chạy ${formatClockDuration(elapsed)}`, percent);
+  };
+  update();
+  const timer = setInterval(update, 1000);
+  try {
+    return await runFfmpegProcess(whisperExePath, args);
+  } finally {
+    clearInterval(timer);
+  }
+}
+
+function escapeConcatPath(path) {
+  return String(path || "").replace(/'/g, "'\\''");
+}
+
+async function transcribeA1Batch(clips, language) {
+  const batchStem = `ht_sub_batch_${Date.now()}`;
+  const wavEntries = [];
+  const ranges = [];
+  let cursor = 0;
+  const groupSize = getAdaptiveSubtitleGroupSize();
+  const groupCount = Math.ceil(clips.length / groupSize);
+  for (let groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+    await waitIfTaskPaused();
+    const groupStart = groupIndex * groupSize;
+    const groupClips = clips.slice(groupStart, groupStart + groupSize);
+    const wavEntry = await subtitleOutputFolder.createFile(`${batchStem}_group_${String(groupIndex + 1).padStart(3, "0")}.wav`, { overwrite: true });
+    trackSubtitleTemp(wavEntry);
+    const args = ["-nostdin", "-hide_banner", "-loglevel", "error", "-y"];
+    const filterParts = [];
+    const concatInputs = [];
+    let groupDuration = 0;
+    groupClips.forEach((clip, localIndex) => {
+      const duration = clip.sourceOut - clip.sourceIn;
+      groupDuration += Math.max(0, duration);
+      args.push("-ss", String(clip.sourceIn), "-t", String(duration), "-i", clip.mediaPath);
+      filterParts.push(`[${localIndex}:a]asetpts=PTS-STARTPTS,aresample=16000,aformat=sample_fmts=s16:channel_layouts=mono[a${localIndex}]`);
+      concatInputs.push(`[a${localIndex}]`);
+      ranges.push({ concatStart: cursor, concatEnd: cursor + duration, clip, sourceDuration: duration });
+      cursor += duration;
+    });
+    filterParts.push(`${concatInputs.join("")}concat=n=${groupClips.length}:v=0:a=1[outa]`);
+    args.push("-vn", "-filter_complex", filterParts.join(";"), "-map", "[outa]", "-c:a", "pcm_s16le", wavEntry.nativePath);
+    const lastClipNumber = Math.min(clips.length, groupStart + groupClips.length);
+    const groupStartPercent = Math.ceil(5 + (groupIndex / groupCount) * 35);
+    const groupDonePercent = Math.ceil(5 + ((groupIndex + 1) / groupCount) * 35);
+    const groupTimeoutMs = Math.min(180000, Math.max(45000, Math.ceil(groupDuration * 1500) + 15000));
+    const ffmpeg = await runProcessWithHeartbeat(getFfmpegPath(), args, groupTimeoutMs, `Đang chuẩn hóa nhóm ${groupIndex + 1}/${groupCount}`, `Clip ${groupStart + 1}–${lastClipNumber} · ${formatClockDuration(groupDuration)}`, groupStartPercent);
+    if (ffmpeg.exitCode !== 0) throw new Error(`Không chuẩn hóa được nhóm ${groupIndex + 1} (clip ${groupStart + 1}–${lastClipNumber}): ${ffmpeg.stderr || "unknown error"}`);
+    wavEntries.push(wavEntry);
+    showTaskProgress(`Đã chuẩn hóa nhóm ${groupIndex + 1}/${groupCount}`, `Clip ${groupStart + 1}–${lastClipNumber}`, groupDonePercent);
+  }
+
+  await waitIfTaskPaused();
+  let batchWav = wavEntries[0];
+  if (wavEntries.length > 1) {
+    const listEntry = await subtitleOutputFolder.createFile(`${batchStem}_concat.txt`, { overwrite: true });
+    trackSubtitleTemp(listEntry);
+    await listEntry.write(wavEntries.map((entry) => `file '${escapeConcatPath(entry.nativePath)}'`).join("\n"), { format: storage.formats.utf8 });
+    batchWav = await subtitleOutputFolder.createFile(`${batchStem}.wav`, { overwrite: true });
+    trackSubtitleTemp(batchWav);
+    showTaskProgress("Đang ghép các nhóm A1", `${wavEntries.length} nhóm · ${formatClockDuration(cursor)}`, 42);
+    const concat = await runFfmpegProcess(getFfmpegPath(), ["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", listEntry.nativePath, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", batchWav.nativePath], 300000);
+    if (concat.exitCode !== 0) throw new Error(`FFmpeg không ghép được các nhóm A1: ${concat.stderr || "unknown error"}`);
+  }
+
+  await waitIfTaskPaused();
+  const prefix = `${subtitleOutputFolder.nativePath}\\${batchStem}`;
+  trackSubtitleTemp(`${prefix}.json`);
+  const usingGpu = whisperBackend.toUpperCase().includes("CUDA");
+  showTaskProgress("Whisper đang nhận dạng một lượt", `${formatClockDuration(cursor)} · ${usingGpu ? whisperBackend : `${getWhisperThreadCount()} luồng CPU`}`, 48);
+  const whisperArgs = ["-m", whisperModelPath, "-f", batchWav.nativePath, "-l", language || "auto", "-t", String(getWhisperThreadCount())];
+  if (usingGpu) whisperArgs.push("-fa");
+  else whisperArgs.push("-ng");
+  whisperArgs.push("-oj", "-of", prefix);
+  const result = await runWhisperWithProgress(whisperArgs, cursor, 48, 92, formatClockDuration(cursor));
+  if (result.exitCode !== 0) throw new Error(`Whisper batch gặp lỗi: ${result.stderr || result.stdout || "unknown error"}`);
+  const jsonEntry = await findOutputEntry(`${batchStem}.json`);
+  if (!jsonEntry) throw new Error(`Whisper chưa tạo ${batchStem}.json.`);
+  const recognized = parseWhisperSegments(JSON.parse(await jsonEntry.read()));
+  return recognized.map((segment) => {
+    const midpoint = (segment.start + segment.end) / 2;
+    const range = ranges.find((item) => midpoint >= item.concatStart && midpoint <= item.concatEnd) || ranges[ranges.length - 1];
+    const ratio = range.sourceDuration > 0 ? (range.clip.timelineEnd - range.clip.timelineStart) / range.sourceDuration : 1;
+    return {
+      start: range.clip.timelineStart + Math.max(0, segment.start - range.concatStart) * ratio,
+      end: Math.min(range.clip.timelineEnd, range.clip.timelineStart + Math.max(0, segment.end - range.concatStart) * ratio),
+      text: segment.text
+    };
+  }).filter((segment) => segment.text && segment.end > segment.start);
+}
+
+const subtitleBuildButton = getEl("btnBuildSubtitle");
+if (subtitleBuildButton) {
+  subtitleBuildButton.classList.remove("disabled", "is-running");
+  subtitleBuildButton.removeAttribute("disabled");
+}
+
+async function handleBuildSubtitle() {
+  const button = getEl("btnBuildSubtitle");
+  const badge = getEl("badgeSubtitleStatus");
+  if (subtitleBuildRunning) {
+    const validation = getEl("subtitleValidation");
+    if (validation) {
+      validation.textContent = "Auto Subtitle đang xử lý. Bạn có thể theo dõi tiến độ hoặc bấm Tạm dừng bên dưới.";
+      validation.style.display = "block";
+    }
+    return;
+  }
+  subtitleBuildRunning = true;
+  button.classList.remove("disabled");
+  button.removeAttribute("disabled");
+  button.classList.add("is-running");
+  badge.textContent = "Đang kiểm tra";
+  showTaskProgress("Đang chuẩn bị Auto Subtitle", "Kiểm tra Whisper và nguồn A1...", 1);
+  try {
+    if (!whisperExePath || !whisperModelPath) await autoDetectWhisper();
+    await verifyWhisperRuntime();
+    logSubtitleMachineProfile();
+    const validationErrors = validateSubtitleRequest();
+    if (validationErrors.length) throw new Error(validationErrors.join(" "));
+    const oldTempRemoved = await cleanupSubtitleTempFiles(true);
+    if (oldTempRemoved) log(`🧹 Đã dọn ${oldTempRemoved} file subtitle tạm cũ.`);
+    if (!ppro) ppro = require("premierepro");
+    const project = await ppro.Project.getActiveProject();
+    if (!project) throw new Error("Không có project đang mở.");
+    const sequence = await resolveSequence(project);
+    if (!sequence) throw new Error("Hãy chọn một timeline hiện có.");
+    badge.textContent = "Đang xử lý";
+    const clips = scannedA1Clips;
+    if (!clips.length) throw new Error("A1 không có audio clip hợp lệ.");
+    const language = getEl("selectSubtitleLanguage").value || "auto";
+    let allSegments = [];
+    if (clips.length > 1) {
+      try {
+        log(`⚡ Chế độ nhanh: chuẩn hóa ${clips.length} clip và nạp Whisper một lần.`);
+        allSegments = await transcribeA1Batch(clips, language);
+      } catch (batchError) {
+        log(`⚠️ Không thể dùng chế độ nhanh: ${batchError.message}`);
+        await cleanupSubtitleTempFiles(false);
+        log("↪ Chuyển sang chế độ tương thích từng clip.");
+      }
+    }
+    if (!allSegments.length) {
+      for (let i = 0; i < clips.length; i++) {
+        await waitIfTaskPaused();
+        badge.textContent = `${i + 1}/${clips.length}`;
+        showTaskProgress(`Đang nhận dạng clip ${i + 1}/${clips.length}`, clips[i].mediaPath, (i / clips.length) * 90 + 5);
+        log(`🎙️ Đang nhận dạng clip A1 ${i + 1}/${clips.length}...`);
+        try {
+          allSegments.push(...await transcribeA1Clip(clips[i], i, language));
+        } catch (clipError) {
+          log(`⚠️ Bỏ qua clip A1 #${i + 1} vì không xử lý được: ${clipError.message}`);
+        }
+      }
+    }
+    allSegments.sort((a, b) => a.start - b.start);
+    if (!allSegments.length) throw new Error("Whisper không nhận dạng được câu thoại nào trên A1.");
+    const safeSequenceName = String(sequence.name || "timeline").replace(/[<>:\"/\\|?*]/g, "_");
+    const outputFileName = `${safeSequenceName}_A1.srt`;
+    const maxLength = Math.max(20, Math.min(80, Number(getEl("inputSubtitleLineLength").value) || 42));
+    const maxLines = getEl("selectSubtitleMaxLines") && getEl("selectSubtitleMaxLines").value === "1" ? 1 : 2;
+    const fittedSegments = fitSubtitleSegmentsToLines(allSegments, maxLength, maxLines);
+    const outputText = fittedSegments.map((segment, index) => `${index + 1}\n${secondsToSrt(segment.start)} --> ${secondsToSrt(segment.end)}\n${segment.text}\n`).join("\n");
+    showTaskProgress("Đang tạo file SRT", outputFileName, 96);
+    const outputEntry = await subtitleOutputFolder.createFile(outputFileName, { overwrite: true });
+    await outputEntry.write(outputText, { format: storage.formats.utf8 });
+    let imported = false;
+    if (getEl("checkSubtitleImport") && getEl("checkSubtitleImport").checked) {
+      const root = await project.getRootItem();
+      const bin = await ensureBin(project, root, "Auto Subtitles");
+      await project.importFiles([outputEntry.nativePath], true, bin, false);
+      imported = true;
+    }
+    try {
+      localStorage.removeItem("htSubtitleDraft");
+      localStorage.removeItem("htSubtitleRecognitionCache");
+    } catch (e) {}
+    badge.textContent = `${fittedSegments.length} câu`;
+    showTaskProgress("Đã tạo subtitle", outputEntry.nativePath, 100);
+    log(`✅ Đã tạo ${fittedSegments.length} câu subtitle, tối đa ${maxLines} dòng/câu: ${outputEntry.nativePath}`);
+    finishTask(imported ? `Đã tạo và import ${fittedSegments.length} câu subtitle vào Project.` : `Đã tạo ${fittedSegments.length} câu subtitle.`, "success");
+  } catch (e) {
+    badge.textContent = "Lỗi";
+    log(`❌ Auto Subtitle: ${e.message}`);
+    finishTask(e.message, "error");
+  } finally {
+    const removed = await cleanupSubtitleTempFiles(false);
+    if (removed) log(`🧹 Đã tự động xóa ${removed} file WAV/JSON tạm.`);
+    subtitleBuildRunning = false;
+    button.classList.remove("disabled", "is-running");
+    button.removeAttribute("disabled");
+  }
+}
