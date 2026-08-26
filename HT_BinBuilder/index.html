@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HT_BinBuilder</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <div class="brand"><span class="brand-mark">HB</span><div><h1>HT_BinBuilder</h1><p>Tạo cấu trúc project nhất quán</p></div></div>
+      <span class="version">1.0.0</span>
+    </header>
+
+    <nav class="tabs" aria-label="Điều hướng chính">
+      <button class="tab active" data-page="overview">Tổng quan</button>
+      <button class="tab" data-page="builder">Tạo Bin</button>
+      <button class="tab" data-page="presets">Preset</button>
+      <button class="tab" data-page="settings">Cài đặt</button>
+    </nav>
+
+    <section id="page-overview" class="page active">
+      <div class="hero card">
+        <span class="eyebrow">PREMIERE WORKFLOW</span>
+        <h2>Một cấu trúc sạch cho mọi project</h2>
+        <p>Chọn preset, kiểm tra cấu trúc và tạo toàn bộ Bin lồng nhau trong một thao tác.</p>
+        <button class="primary" data-open-builder>Bắt đầu tạo Bin</button>
+      </div>
+      <div class="status-grid">
+        <div class="metric card"><span>Premiere</span><strong id="premiereState">Đang kiểm tra…</strong></div>
+        <div class="metric card"><span>Project</span><strong id="projectState">Chưa xác định</strong></div>
+        <div class="metric card"><span>Bin hiện tại</span><strong id="binCountState">—</strong></div>
+        <div class="metric card"><span>Preset</span><strong id="presetCountState">—</strong></div>
+      </div>
+      <button id="refreshOverviewBtn" class="secondary wide">Làm mới trạng thái</button>
+    </section>
+
+    <section id="page-builder" class="page">
+      <div class="card">
+        <div class="section-head"><div><span class="eyebrow">BƯỚC 1</span><h2>Chọn cấu trúc</h2></div><button id="captureBtn" class="ghost">Lấy từ project</button></div>
+        <label for="presetSelect">Preset</label>
+        <div class="control-row"><select id="presetSelect"></select><button id="loadPresetBtn" class="secondary">Nạp</button></div>
+      </div>
+      <div class="card editor-card">
+        <div class="section-head"><div><span class="eyebrow">BƯỚC 2</span><h2>Kiểm tra đường dẫn Bin</h2></div><span id="pathCount" class="pill">0 đường dẫn</span></div>
+        <textarea id="structureInput" spellcheck="false" aria-label="Cấu trúc Bin"></textarea>
+        <p class="hint">Mỗi dòng là một đường dẫn. Dùng <code>/</code> để tạo Bin con, ví dụ <code>01_FOOTAGE/RAW</code>.</p>
+      </div>
+      <div class="progress-wrap" id="progressWrap" hidden><div class="progress"><span id="progressBar"></span></div><span id="progressText">Đang chuẩn bị…</span></div>
+      <button id="createBtn" class="primary action">Tạo cấu trúc Bin</button>
+    </section>
+
+    <section id="page-presets" class="page">
+      <div class="card">
+        <span class="eyebrow">THƯ VIỆN CÁ NHÂN</span><h2>Lưu cấu trúc đang chỉnh</h2>
+        <label for="presetName">Tên preset</label>
+        <input id="presetName" type="text" maxlength="80" placeholder="Ví dụ: Documentary Workflow">
+        <div class="button-row"><button id="savePresetBtn" class="primary">Lưu preset</button><button id="deletePresetBtn" class="danger">Xóa preset đang chọn</button></div>
+        <p class="hint">Preset cá nhân được lưu trên máy này. Preset mặc định không thể bị xóa.</p>
+      </div>
+    </section>
+
+    <section id="page-settings" class="page">
+      <div class="card">
+        <span class="eyebrow">QUY TẮC</span><h2>Hành vi tạo Bin</h2>
+        <label class="check"><input id="sortPathsSetting" type="checkbox" checked><span>Tạo Bin cha trước và sắp xếp theo tên</span></label>
+        <label class="check"><input id="skipExistingSetting" type="checkbox" checked disabled><span>Giữ nguyên Bin đã tồn tại</span></label>
+      </div>
+      <div class="card"><h2>Thông tin hệ thống</h2><dl><div><dt>Plugin</dt><dd>HT_BinBuilder 1.0.0</dd></div><div><dt>Premiere tối thiểu</dt><dd>26.2</dd></div><div><dt>Lưu trữ</dt><dd>UXP localStorage</dd></div></dl></div>
+    </section>
+
+    <section class="log-panel">
+      <button id="toggleLogBtn" class="log-head"><span>Nhật ký</span><span id="resultBadge" class="result neutral">Sẵn sàng</span></button>
+      <div id="logBody" hidden><pre id="statusLog">Sẵn sàng.</pre><button id="clearLogBtn" class="ghost small">Xóa nhật ký</button></div>
+    </section>
+  </main>
+  <script src="index.js"></script>
+</body>
+</html>
