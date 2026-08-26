@@ -3,7 +3,7 @@
 # ============================================================================
 
 $port = 19888
-$bridgeVersion = "5.7.7"
+$bridgeVersion = "5.7.8"
 $localAddr = [System.Net.IPAddress]::Parse("127.0.0.1")
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $defaultFfmpegExe = Join-Path $scriptDir "ffmpeg.exe"

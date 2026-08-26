@@ -1,8 +1,9 @@
 @echo off
 setlocal
 title Go cai dat HT_Automation
-cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\uninstall.ps1"
+for %%I in ("%~dp0..\..") do set "HT_ROOT=%%~fI"
+cd /d "%HT_ROOT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HT_ROOT%\installer\uninstall.ps1"
 set "HT_EXIT=%ERRORLEVEL%"
 echo.
 if not "%HT_EXIT%"=="0" (

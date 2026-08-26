@@ -1,9 +1,9 @@
-HT_AUTOMATION 5.7.7 - CAI DAT WINDOWS X64
+HT_AUTOMATION 5.7.8 - CAI DAT WINDOWS X64
 ==========================================
 
 1. Giai nen toan bo HT_Automation_Setup_Windows.zip.
 2. Dong Premiere Pro.
-3. Nhan dup CAI_DAT_MOT_CLICK.bat.
+3. Mo cong_cu\cai_dat va nhan dup CAI_DAT_MOT_CLICK.bat.
 4. Bo cai tu chep plugin UXP, khong mo Creative Cloud.
 5. Mo lai Premiere Pro.
 6. Vao Window > UXP Plugins > HT_Automation.
@@ -21,4 +21,4 @@ Can ket noi Internet trong lan cai dau tien. Cac lan cap nhat sau se tai lai neu
 
 GO CAI DAT
 -----------
-Dong Premiere Pro, sau do nhan dup GO_CAI_DAT.bat trong bo cai da giai nen.
+Dong Premiere Pro, sau do nhan dup cong_cu\cai_dat\GO_CAI_DAT.bat trong bo cai da giai nen.

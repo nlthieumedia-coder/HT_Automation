@@ -1984,7 +1984,7 @@ let detectedLogicalProcessors = 0;
 let whisperBackend = "CPU";
 let subtitleMachineProfile = { physicalMemoryGB: 0, gpuMemoryMB: 0, runtimeDriveFreeGB: 0 };
 let subtitleTempPaths = [];
-const HT_AUTOMATION_VERSION = "5.7.7";
+const HT_AUTOMATION_VERSION = "5.7.8";
 let latestDiagnostics = null;
 
 function trackSubtitleTemp(entryOrPath) {
@@ -2025,7 +2025,7 @@ async function autoDetectWhisper() {
     if (!response.ok) return false;
     const health = await response.json();
     if (String(health.bridgeVersion || "") !== HT_AUTOMATION_VERSION) {
-      log(`⚠️ Bridge ${health.bridgeVersion || "cũ"} không khớp Plugin ${HT_AUTOMATION_VERSION}. Hãy đóng Premiere và chạy SUA_CHUA.bat.`);
+      log(`⚠️ Bridge ${health.bridgeVersion || "cũ"} không khớp Plugin ${HT_AUTOMATION_VERSION}. Hãy đóng Premiere và chạy cong_cu\\cai_dat\\SUA_CHUA.bat.`);
       setSystemState("whisper", "Cần Repair", "error");
       return false;
     }
@@ -2078,7 +2078,7 @@ async function collectSystemDiagnostics() {
   report.compatible = Boolean(report.bridge && report.bridge.status === "ok" && String(report.bridge.bridgeVersion || "") === HT_AUTOMATION_VERSION && report.whisperTest && report.whisperTest.exitCode === 0 && report.ffmpegTest && report.ffmpegTest.exitCode === 0);
   latestDiagnostics = report;
   const summary = getEl("diagnosticsSummary");
-  if (summary) summary.textContent = report.compatible ? `Sẵn sàng · Bridge ${report.bridge.bridgeVersion} · ${report.bridge.whisperBackend}` : "Phát hiện lỗi. Hãy xuất báo cáo hoặc chạy SUA_CHUA.bat.";
+  if (summary) summary.textContent = report.compatible ? `Sẵn sàng · Bridge ${report.bridge.bridgeVersion} · ${report.bridge.whisperBackend}` : "Phát hiện lỗi. Hãy xuất báo cáo hoặc chạy cong_cu\\cai_dat\\SUA_CHUA.bat.";
   log(report.compatible ? `✅ Chẩn đoán đạt: Bridge ${report.bridge.bridgeVersion} · ${report.bridge.whisperBackend}.` : "❌ Chẩn đoán chưa đạt; xem báo cáo trong tab Cài đặt.");
   return report;
 }

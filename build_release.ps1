@@ -85,7 +85,7 @@ $requiredFiles = @(
     "icons\panel-light.svg",
     "bin\ffmpeg.exe",
     "bin\ffmpeg_bridge_server.ps1",
-    "CHAY_FFMPEG_BRIDGE.bat",
+    "cong_cu\phat_trien\CHAY_FFMPEG_BRIDGE.bat",
     "THIRD_PARTY_NOTICES.md",
     "HUONG_DAN_CAI_DAT.txt"
 )
@@ -197,11 +197,12 @@ try {
     $portableZip = Join-Path $distDir $portableZipName
     New-Item -ItemType Directory -Path (Join-Path $portableDir "installer") | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $portableDir "payload") | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $portableDir "cong_cu\cai_dat") -Force | Out-Null
     Copy-Item -LiteralPath $packagePath -Destination $portableDir
-    Copy-Item -LiteralPath (Join-Path $projectDir "CAI_DAT_MOT_CLICK.bat") -Destination $portableDir
-    Copy-Item -LiteralPath (Join-Path $projectDir "GO_CAI_DAT.bat") -Destination $portableDir
-    Copy-Item -LiteralPath (Join-Path $projectDir "SUA_CHUA.bat") -Destination $portableDir
-    Copy-Item -LiteralPath (Join-Path $projectDir "CAP_NHAT_MOT_CLICK.bat") -Destination $portableDir
+    Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\CAI_DAT_MOT_CLICK.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
+    Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\GO_CAI_DAT.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
+    Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\SUA_CHUA.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
+    Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\CAP_NHAT_MOT_CLICK.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\install.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\update.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall.ps1") -Destination (Join-Path $portableDir "installer")
@@ -233,7 +234,7 @@ Ngay dong goi: $($packageInfo.builtAt)
     Write-Host ""
     Write-Host "BO CAI MOT CLICK: $portableZip" -ForegroundColor Green
     Write-Host "SHA-256: $portableHash"
-    Write-Host "May moi: giai nen ZIP, bam dup CAI_DAT_MOT_CLICK.bat." -ForegroundColor Cyan
+    Write-Host "May moi: giai nen ZIP, bam dup cong_cu\cai_dat\CAI_DAT_MOT_CLICK.bat." -ForegroundColor Cyan
     Remove-Item -LiteralPath $portableDir -Recurse -Force
 } finally {
     $resolvedTempRoot = [System.IO.Path]::GetFullPath($tempRoot)

@@ -1,9 +1,10 @@
 @echo off
 setlocal
 title Sua chua HT_Automation
-cd /d "%~dp0"
+for %%I in ("%~dp0..\..") do set "HT_ROOT=%%~fI"
+cd /d "%HT_ROOT%"
 echo Dang kiem tra va cai dat lai toan bo thanh phan HT_Automation...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\install.ps1" -PackageRoot "%~dp0." -Repair
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HT_ROOT%\installer\install.ps1" -PackageRoot "%HT_ROOT%" -Repair
 set "HT_EXIT=%ERRORLEVEL%"
 echo.
 if not "%HT_EXIT%"=="0" echo Sua chua khong thanh cong. Ma loi: %HT_EXIT%

@@ -1,4 +1,23 @@
-# HT_Automation 5.7.7
+# HT_Automation 5.7.8
+
+## Cấu trúc thư mục
+
+```text
+HT_Automation/
+├── cong_cu/
+│   ├── cai_dat/       # Cài đặt, cập nhật, sửa chữa và gỡ cài đặt
+│   └── phat_trien/    # Tạo bộ cài và chạy bridge thủ công
+├── installer/         # Logic PowerShell của bộ cài
+├── bin/               # FFmpeg và bridge runtime
+├── icons/             # Tài nguyên giao diện
+└── dist/              # CCX và ZIP phát hành mới nhất
+```
+
+## Sắp xếp công cụ 5.7.8
+
+- Gom cài đặt, cập nhật, sửa chữa và gỡ cài đặt vào `cong_cu\cai_dat`.
+- Gom công cụ đóng gói và chạy bridge thủ công vào `cong_cu\phat_trien`.
+- Bộ cài ZIP và toàn bộ hướng dẫn sử dụng cùng một cấu trúc thư mục.
 
 ## Cập nhật một click 5.7.7
 
@@ -51,7 +70,7 @@
 
 ## Gỡ cài đặt một click 5.7.0
 
-- Chạy `GO_CAI_DAT.bat` trong bộ cài đã giải nén.
+- Chạy `cong_cu\cai_dat\GO_CAI_DAT.bat` trong bộ cài đã giải nén.
 - Gỡ plugin UXP, Bridge tự khởi động, Whisper/model và dữ liệu runtime HT_Automation.
 - Kiểm tra Premiere đã đóng và xác thực đường dẫn trước khi xóa.
 
@@ -216,7 +235,7 @@ Yêu cầu: Windows x64 và Premiere Pro 26.2 trở lên. Không cần Creative 
 
 1. Tải `dist/HT_Automation_Setup_Windows.zip`.
 2. Giải nén toàn bộ ZIP.
-3. Nhấp đúp `CAI_DAT_MOT_CLICK.bat`.
+3. Nhấp đúp `cong_cu\cai_dat\CAI_DAT_MOT_CLICK.bat`.
 4. Chờ bộ cài chép plugin UXP, Bridge và Whisper rồi mở lại Premiere Pro.
 5. Mở **Window > UXP Plugins > HT_Automation**.
 
@@ -227,7 +246,7 @@ UXP Developer Tool hoặc cài FFmpeg riêng.
 ## Phát triển và đóng gói
 
 `bin/ffmpeg.exe` không được commit. Nếu thiếu, chạy `download_ffmpeg.ps1`.
-Máy build cần Node.js LTS, sau đó chạy `TAO_BO_CAI.bat` hoặc:
+Máy build cần Node.js LTS, sau đó chạy `cong_cu\phat_trien\TAO_BO_CAI.bat` hoặc:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build_release.ps1

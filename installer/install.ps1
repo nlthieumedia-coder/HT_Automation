@@ -213,7 +213,7 @@ foreach ($connection in $oldConnections) {
 Start-Sleep -Milliseconds 500
 $remainingBridge = Get-NetTCPConnection -State Listen -LocalPort 19888 -ErrorAction SilentlyContinue
 if ($remainingBridge) {
-    throw "Bridge cu van chiem cong 19888 (PID $($remainingBridge[0].OwningProcess)). Hay dong Premiere, chay SUA_CHUA.bat bang Run as administrator."
+    throw "Bridge cu van chiem cong 19888 (PID $($remainingBridge[0].OwningProcess)). Hay dong Premiere, chay cong_cu\cai_dat\SUA_CHUA.bat bang Run as administrator."
 }
 $ready = $false
 try {
