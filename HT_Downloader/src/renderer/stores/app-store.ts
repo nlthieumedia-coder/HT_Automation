@@ -1,0 +1,37 @@
+import { create } from 'zustand';
+import type { DownloadProgress, ScanResult, VideoItem } from '../../shared/types';
+import { friendlyError } from '../utils/format';
+
+interface AppState {
+  url: string; scanStatus: 'idle' | 'scanning' | 'complete' | 'error'; result?: ScanResult; error?: string;
+  selectedFormats: Record<string, string>; outputDirectory?: string; downloads: Record<string, DownloadProgress>;
+  setUrl(url: string): void; scan(): Promise<void>; selectFormat(videoId: string, formatId: string): void;
+  chooseDirectory(): Promise<void>; startDownload(video: VideoItem): Promise<void>; updateDownload(progress: DownloadProgress): void; cancel(id: string): Promise<void>;
+}
+
+export const useAppStore = create<AppState>((set, get) => ({
+  url: '', scanStatus: 'idle', selectedFormats: {}, downloads: {},
+  setUrl: url => set({ url }),
+  scan: async () => {
+    const url = get().url.trim(); set({ scanStatus: 'scanning', error: undefined, result: undefined });
+    const response = await window.htDownloader.scanUrl(url);
+    if (!response.ok) return set({ scanStatus: 'error', error: friendlyError(response.error.code, response.error.message) });
+    const selectedFormats = Object.fromEntries(response.data.videos.map(video => [video.id, video.formats[0]?.id ?? '']));
+    set({ result: response.data, selectedFormats, scanStatus: 'complete' });
+  },
+  selectFormat: (videoId, formatId) => set(state => ({ selectedFormats: { ...state.selectedFormats, [videoId]: formatId } })),
+  chooseDirectory: async () => { const directory = await window.htDownloader.chooseDirectory(); if (directory) set({ outputDirectory: directory }); },
+  startDownload: async video => {
+    let outputDirectory = get().outputDirectory;
+    if (!outputDirectory) { await get().chooseDirectory(); outputDirectory = get().outputDirectory; }
+    if (!outputDirectory) return;
+    const selectedFormatId = get().selectedFormats[video.id]; const format = video.formats.find(item => item.id === selectedFormatId);
+    // yt-dlp format IDs only have meaning against the original webpage URL.
+    // Direct/HLS/DASH fallback formats instead need their detected stream URL.
+    const sourceUrl = video.sourceType === 'ytdlp' ? video.sourceUrl : (format?.sourceUrl ?? video.sourceUrl);
+    const response = await window.htDownloader.download({ videoId: video.id, sourceUrl, selectedFormatId, selectedHasAudio: format?.hasAudio, outputDirectory, title: video.title });
+    if (!response.ok && response.error.code !== 'DOWNLOAD_CANCELLED') set({ error: friendlyError(response.error.code, response.error.message) });
+  },
+  updateDownload: progress => set(state => ({ downloads: { ...state.downloads, [progress.downloadId]: progress } })),
+  cancel: async id => { await window.htDownloader.cancelDownload(id); }
+}));

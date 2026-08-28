@@ -2,7 +2,7 @@
   "id": "com.hieuyt.htbinbuilder",
   "name": "HT_BinBuilder",
   "shortname": "HTBinBuilder",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "main": "index.html",
   "manifestVersion": 6,
   "host": {
@@ -25,6 +25,6 @@
     }
   ],
   "icons": [
-    { "width": 48, "height": 48, "path": "icons/plugin-icon.svg", "scale": [1, 2], "theme": ["all"], "species": ["pluginList"] }
+    { "width": 48, "height": 48, "path": "icons/logo_icon.png", "scale": [1, 2], "theme": ["all"], "species": ["pluginList"] }
   ]
 }

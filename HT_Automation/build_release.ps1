@@ -80,6 +80,8 @@ $requiredFiles = @(
     "manifest.json",
     "index.html",
     "index.js",
+    "icons\logo_icon.png",
+    "icons\plugin-icon.png",
     "icons\plugin-icon.svg",
     "icons\panel-dark.svg",
     "icons\panel-light.svg",

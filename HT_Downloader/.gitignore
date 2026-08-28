@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.log
+resources/binaries/win/*.exe
