@@ -1,22 +1,20 @@
 import type { VideoItem } from '../../shared/types';
 import { useAppStore } from '../stores/app-store';
 import { formatBytes, formatDuration } from '../utils/format';
+import { Icon } from './Icon';
 
 export function VideoCard({ video }: { video: VideoItem }): React.JSX.Element {
-  const selectedId = useAppStore(state => state.selectedFormats[video.id]); const select = useAppStore(state => state.selectFormat); const download = useAppStore(state => state.startDownload);
+  const selectedId = useAppStore(state => state.selectedFormats[video.id]);
+  const select = useAppStore(state => state.selectFormat);
+  const download = useAppStore(state => state.startDownload);
   const format = video.formats.find(item => item.id === selectedId) ?? video.formats[0];
-  return <article className="card overflow-hidden">
-    <div className="grid gap-0 md:grid-cols-[240px_1fr]">
-      <div className="flex min-h-40 items-center justify-center bg-slate-950">
-        {video.thumbnail ? <img src={video.thumbnail} className="h-full max-h-52 w-full object-cover" alt="" /> : <span className="text-4xl text-slate-700">▶</span>}
-      </div>
-      <div className="p-5"><div className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400">{video.sourceType}</div>
-        <h2 className="mb-2 line-clamp-2 text-lg font-semibold">{video.title}</h2><p className="mb-5 text-sm text-slate-400">{formatDuration(video.duration)}</p>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]"><label className="block"><span className="mb-2 block text-xs font-medium text-slate-400">Quality</span>
-          <select value={selectedId} onChange={event => select(video.id, event.target.value)} className="w-full rounded-xl border border-line bg-slate-950 px-4 py-3 outline-none focus:border-violet-500">{video.formats.map(item => <option key={item.id} value={item.id}>{item.qualityLabel}</option>)}</select></label>
-          <button className="btn-primary self-end" onClick={() => void download(video)}>Download</button></div>
-        <p className="mt-3 text-xs text-slate-500">{format?.width && format.height ? `${format.width}×${format.height}` : 'Original resolution'}{format?.fps ? ` • ${Math.round(format.fps)} FPS` : ''}{format?.extension ? ` • ${format.extension.toUpperCase()}` : ''} • {formatBytes(format?.fileSize)}</p>
-      </div>
+  return <article className="video-card">
+    <div className="thumbnail">{video.thumbnail ? <img src={video.thumbnail} alt=""/> : <div className="thumbnail-placeholder"><Icon name="file"/></div>}<span className="source-badge">{sourceName(video.sourceType)}</span>{video.duration && <span className="duration-badge">{formatDuration(video.duration)}</span>}</div>
+    <div className="video-content"><div className="video-title-row"><div><p className="video-kicker">VIDEO ĐÃ PHÁT HIỆN</p><h3>{video.title}</h3></div></div>
+      <div className="video-actions"><label><span>Chất lượng đầu ra</span><select value={selectedId} onChange={event => select(video.id, event.target.value)}>{video.formats.map(item => <option key={item.id} value={item.id}>{item.qualityLabel}</option>)}</select></label><button className="btn-primary download-button" onClick={() => void download(video)}><Icon name="download"/><span>Tải xuống</span></button></div>
+      <div className="format-meta"><span>{format?.width && format.height ? `${format.width} × ${format.height}` : 'Độ phân giải gốc'}</span>{format?.fps && <span>{Math.round(format.fps)} FPS</span>}{format?.extension && <span>{format.extension.toUpperCase()}</span>}<span>{formatBytes(format?.fileSize)}</span>{!format?.hasAudio && <span className="merge-note">Tự động ghép âm thanh</span>}</div>
     </div>
   </article>;
 }
+
+function sourceName(source: VideoItem['sourceType']): string { return source === 'dash' ? 'REDDIT · DASH' : source.toUpperCase(); }

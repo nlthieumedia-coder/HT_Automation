@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import type { DownloadProgress, ScanResult, VideoItem } from '../../shared/types';
 import { friendlyError } from '../utils/format';
+import { parseUrlLines } from '../utils/url-list';
 
 interface AppState {
   url: string; scanStatus: 'idle' | 'scanning' | 'complete' | 'error'; result?: ScanResult; error?: string;
+  scanProgress?: { completed: number; total: number };
   selectedFormats: Record<string, string>; outputDirectory?: string; downloads: Record<string, DownloadProgress>;
   setUrl(url: string): void; scan(): Promise<void>; selectFormat(videoId: string, formatId: string): void;
   chooseDirectory(): Promise<void>; startDownload(video: VideoItem): Promise<void>; updateDownload(progress: DownloadProgress): void; cancel(id: string): Promise<void>;
@@ -13,11 +15,32 @@ export const useAppStore = create<AppState>((set, get) => ({
   url: '', scanStatus: 'idle', selectedFormats: {}, downloads: {},
   setUrl: url => set({ url }),
   scan: async () => {
-    const url = get().url.trim(); set({ scanStatus: 'scanning', error: undefined, result: undefined });
-    const response = await window.htDownloader.scanUrl(url);
-    if (!response.ok) return set({ scanStatus: 'error', error: friendlyError(response.error.code, response.error.message) });
-    const selectedFormats = Object.fromEntries(response.data.videos.map(video => [video.id, video.formats[0]?.id ?? '']));
-    set({ result: response.data, selectedFormats, scanStatus: 'complete' });
+    const urls = parseUrlLines(get().url);
+    if (!urls.length) return;
+    set({ scanStatus: 'scanning', scanProgress: { completed: 0, total: urls.length }, error: undefined, result: undefined });
+
+    const results: ScanResult[] = [];
+    const errors: string[] = [];
+    for (const [index, url] of urls.entries()) {
+      const response = await window.htDownloader.scanUrl(url);
+      if (response.ok) results.push(response.data);
+      else errors.push(`Dòng ${index + 1}: ${friendlyError(response.error.code, response.error.message)}`);
+      set({ scanProgress: { completed: index + 1, total: urls.length } });
+    }
+
+    if (!results.length) {
+      return set({ scanStatus: 'error', error: errors.join('\n') || 'Không tìm thấy video.', scanProgress: undefined });
+    }
+
+    const videos = Array.from(new Map(results.flatMap(result => result.videos).map(video => [video.id, video])).values());
+    const result: ScanResult = {
+      pageUrl: urls.join('\n'),
+      pageTitle: results.length === 1 ? results[0].pageTitle : `${results.length} nguồn video`,
+      videos
+    };
+    const selectedFormats = Object.fromEntries(videos.map(video => [video.id, video.formats[0]?.id ?? '']));
+    const partialError = errors.length ? `Đã quét ${results.length}/${urls.length} liên kết.\n${errors.join('\n')}` : undefined;
+    set({ result, selectedFormats, scanStatus: 'complete', error: partialError, scanProgress: undefined });
   },
   selectFormat: (videoId, formatId) => set(state => ({ selectedFormats: { ...state.selectedFormats, [videoId]: formatId } })),
   chooseDirectory: async () => { const directory = await window.htDownloader.chooseDirectory(); if (directory) set({ outputDirectory: directory }); },

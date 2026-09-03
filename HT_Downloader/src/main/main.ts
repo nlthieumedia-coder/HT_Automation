@@ -8,13 +8,16 @@ import { DownloadManager } from './downloader/download-manager';
 
 function createWindow(): void {
   const window = new BrowserWindow({
-    width: 1100, height: 760,
+    width: 1160, height: 780, minWidth: 760, minHeight: 620,
+    backgroundColor: '#181818',
+    icon: app.isPackaged ? path.join(process.resourcesPath, 'branding', 'logo_icon.png') : path.join(app.getAppPath(), '..', 'Logo', 'logo_icon.png'),
     webPreferences: { preload: path.join(__dirname, '../preload/preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   void window.loadFile(path.join(__dirname, '../renderer/index.html'));
 }
 
 app.whenReady().then(() => {
+  app.setAppUserModelId('com.htstudio.downloader');
   const binaries = new BinaryManager();
   registerIpcHandlers(new ScanService(new YtDlpAnalyzer(binaries)), new DownloadManager(binaries));
   createWindow();

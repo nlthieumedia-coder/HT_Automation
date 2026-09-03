@@ -29,6 +29,10 @@ export class DirectScanner {
     return { title: pageTitle, videos: await Promise.all([...candidates.values()].map(candidate => this.normalize(candidate))) };
   }
 
+  async scanMediaUrl(url: string, title: string, thumbnail?: string): Promise<VideoItem> {
+    return this.normalize({ url, title, thumbnail });
+  }
+
   private async normalize(candidate: Candidate): Promise<VideoItem> {
     const pathname = new URL(candidate.url).pathname.toLowerCase();
     const sourceType: SourceType = pathname.endsWith('.m3u8') ? 'hls' : pathname.endsWith('.mpd') ? 'dash' : 'direct';

@@ -1,11 +1,13 @@
 {
   "name": "ht-downloader",
-  "version": "0.1.0",
+  "version": "2.0.2",
   "private": true,
   "description": "Secure Windows desktop media scanner and downloader",
-  "main": "dist/main/main.js",
+  "author": "HT Studio",
+  "main": "build/main/main.js",
   "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "clean": "node -e \"require('fs').rmSync('build',{recursive:true,force:true})\"",
+    "clean:setup": "node -e \"require('fs').rmSync('Setup',{recursive:true,force:true})\"",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
@@ -13,7 +15,7 @@
     "prepare:binaries": "node scripts/prepare-binaries.mjs",
     "start": "npm run build && node scripts/start-electron.mjs",
     "test": "vitest run",
-    "dist": "npm run build && electron-builder --win nsis"
+    "dist": "npm run clean:setup && npm run build && electron-builder --win nsis --config.electronDist=node_modules/electron/dist && node scripts/build-uninstaller.mjs"
   },
   "dependencies": {
     "cheerio": "^1.1.2",
@@ -40,11 +42,16 @@
   },
   "build": {
     "appId": "com.htdownloader.app",
+    "directories": { "output": "Setup" },
+    "artifactName": "install.${ext}",
     "productName": "HT Downloader",
     "asar": true,
-    "files": ["dist/**/*", "package.json"],
-    "extraResources": [{ "from": "resources/binaries", "to": "binaries", "filter": ["**/*"] }],
-    "win": { "target": "nsis" },
+    "files": ["build/**/*", "package.json"],
+    "extraResources": [
+      { "from": "resources/binaries", "to": "binaries", "filter": ["**/*"] },
+      { "from": "../Logo/logo_icon.png", "to": "branding/logo_icon.png" }
+    ],
+    "win": { "target": "nsis", "icon": "../Logo/logo_icon.png" },
     "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
   }
 }

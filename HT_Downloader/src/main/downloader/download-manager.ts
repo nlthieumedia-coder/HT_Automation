@@ -8,6 +8,7 @@ import { BinaryManager } from '../media/binary-manager';
 import { AppError } from '../utils/app-error';
 import { logger } from '../utils/logger';
 import { moveWithoutOverwrite } from './file-utils';
+import { redditYtDlpArgs } from '../scanner/reddit';
 
 interface ActiveDownload { child: ChildProcessWithoutNullStreams; temporaryDirectory: string; cancelled: boolean }
 type ProgressListener = (progress: DownloadProgress) => void;
@@ -28,17 +29,17 @@ export class DownloadManager {
     // Keep the temporary path ASCII-only. yt-dlp console encoding on Windows can
     // differ from UTF-8 and corrupt a printed path containing Vietnamese text.
     const output = path.join(temporaryDirectory, 'media.%(ext)s');
-    const args = ['--newline', '--no-playlist', '--no-overwrites', '--no-part', '--ffmpeg-location', path.dirname(ffmpeg), '-f', format, '--merge-output-format', 'mp4', '--progress-template', 'download:%(progress.downloaded_bytes)s|%(progress.total_bytes,progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s|%(progress._percent_str)s', '-o', output, '--', request.sourceUrl];
+    const args = ['--newline', '--no-playlist', '--no-overwrites', '--no-part', '--ffmpeg-location', path.dirname(ffmpeg), ...redditYtDlpArgs(request.sourceUrl), '-f', format, '--merge-output-format', 'mp4', '--progress-template', 'download:%(progress.downloaded_bytes)s|%(progress.total_bytes,progress.total_bytes_estimate)s|%(progress.speed)s|%(progress.eta)s|%(progress._percent_str)s', '-o', output, '--', request.sourceUrl];
     logger.info('DOWNLOAD_STARTED', { downloadId, videoId: request.videoId });
-    onProgress({ downloadId, percent: 0, status: 'starting' });
+    onProgress({ downloadId, videoId: request.videoId, percent: 0, status: 'starting' });
 
     return new Promise((resolve, reject) => {
       const child = spawn(ytDlp, args, { windowsHide: true, shell: false });
       const task: ActiveDownload = { child, temporaryDirectory, cancelled: false }; this.active.set(downloadId, task);
       let stderr = '';
       const processLine = (line: string): void => {
-        if (line.startsWith('download:')) onProgress(parseProgress(downloadId, line));
-        else if (/merg/i.test(line)) { logger.info('MERGE_STARTED', { downloadId }); onProgress({ downloadId, percent: 100, status: 'merging' }); }
+        if (line.startsWith('download:')) onProgress(parseProgress(downloadId, request.videoId, line));
+        else if (/merg/i.test(line)) { logger.info('MERGE_STARTED', { downloadId }); onProgress({ downloadId, videoId: request.videoId, percent: 100, status: 'merging' }); }
       };
       const readStdout = lineReader(processLine); const readStderr = lineReader(processLine);
       child.stdout.on('data', chunk => readStdout(chunk.toString()));
@@ -46,16 +47,16 @@ export class DownloadManager {
       child.once('error', async error => { this.active.delete(downloadId); await rm(temporaryDirectory, { recursive: true, force: true }); reject(new AppError('DOWNLOAD_FAILED', 'Could not start the download.', error.message)); });
       child.once('close', async code => {
         this.active.delete(downloadId);
-        if (task.cancelled) { await rm(temporaryDirectory, { recursive: true, force: true }); onProgress({ downloadId, percent: 0, status: 'cancelled' }); return reject(new AppError('DOWNLOAD_CANCELLED', 'Download cancelled.')); }
-        if (code !== 0) { await rm(temporaryDirectory, { recursive: true, force: true }); logger.error('DOWNLOAD_FAILED', { downloadId, code }); onProgress({ downloadId, percent: 0, status: 'error', message: /merg/i.test(stderr) ? 'Could not merge audio and video.' : 'Download failed.' }); return reject(new AppError(/merg/i.test(stderr) ? 'MERGE_FAILED' : 'DOWNLOAD_FAILED', /merg/i.test(stderr) ? 'Could not merge audio and video.' : 'Download failed.', stderr.slice(-1000))); }
+        if (task.cancelled) { await rm(temporaryDirectory, { recursive: true, force: true }); onProgress({ downloadId, videoId: request.videoId, percent: 0, status: 'cancelled' }); return reject(new AppError('DOWNLOAD_CANCELLED', 'Download cancelled.')); }
+        if (code !== 0) { await rm(temporaryDirectory, { recursive: true, force: true }); logger.error('DOWNLOAD_FAILED', { downloadId, code }); onProgress({ downloadId, videoId: request.videoId, percent: 0, status: 'error', message: /merg/i.test(stderr) ? 'Could not merge audio and video.' : 'Download failed.' }); return reject(new AppError(/merg/i.test(stderr) ? 'MERGE_FAILED' : 'DOWNLOAD_FAILED', /merg/i.test(stderr) ? 'Could not merge audio and video.' : 'Download failed.', stderr.slice(-1000))); }
         try {
           // Enumerating the directory preserves the real Unicode filename and is
           // more reliable than decoding yt-dlp's platform-dependent stdout.
           const file = await findOutputFile(temporaryDirectory);
           const destination = await moveWithoutOverwrite(file, request.outputDirectory, request.title);
           await rm(temporaryDirectory, { recursive: true, force: true }); this.completed.add(path.resolve(destination));
-          logger.info('DOWNLOAD_COMPLETE', { downloadId }); onProgress({ downloadId, percent: 100, status: 'complete', filePath: destination }); resolve({ downloadId, filePath: destination });
-        } catch (error) { await rm(temporaryDirectory, { recursive: true, force: true }); onProgress({ downloadId, percent: 100, status: 'error', message: 'Downloaded data could not be saved.' }); reject(new AppError('DOWNLOAD_FAILED', 'Downloaded data could not be saved.', error instanceof Error ? error.message : String(error))); }
+          logger.info('DOWNLOAD_COMPLETE', { downloadId }); onProgress({ downloadId, videoId: request.videoId, percent: 100, status: 'complete', filePath: destination }); resolve({ downloadId, filePath: destination });
+        } catch (error) { await rm(temporaryDirectory, { recursive: true, force: true }); onProgress({ downloadId, videoId: request.videoId, percent: 100, status: 'error', message: 'Downloaded data could not be saved.' }); reject(new AppError('DOWNLOAD_FAILED', 'Downloaded data could not be saved.', error instanceof Error ? error.message : String(error))); }
       });
     });
   }
@@ -75,9 +76,9 @@ function validateRequest(request: DownloadRequest): void {
 }
 function lineReader(onLine: (line: string) => void): (chunk: string) => void { let buffer = ''; return chunk => { buffer += chunk; const lines = buffer.split(/\r?\n/); buffer = lines.pop() ?? ''; lines.forEach(onLine); }; }
 function parseNumber(value: string): number | undefined { const number = Number(value.trim()); return Number.isFinite(number) ? number : undefined; }
-function parseProgress(downloadId: string, line: string): DownloadProgress {
+function parseProgress(downloadId: string, videoId: string, line: string): DownloadProgress {
   const [downloaded, total, speed, eta, percent] = line.slice('download:'.length).split('|');
-  return { downloadId, downloadedBytes: parseNumber(downloaded), totalBytes: parseNumber(total), speed: speed && speed !== 'NA' ? speed : undefined, eta: eta && eta !== 'NA' ? eta : undefined, percent: Math.max(0, Math.min(100, parseFloat(percent) || 0)), status: 'downloading' };
+  return { downloadId, videoId, downloadedBytes: parseNumber(downloaded), totalBytes: parseNumber(total), speed: speed && speed !== 'NA' ? speed : undefined, eta: eta && eta !== 'NA' ? eta : undefined, percent: Math.max(0, Math.min(100, parseFloat(percent) || 0)), status: 'downloading' };
 }
 async function findOutputFile(directory: string): Promise<string> {
   const files = await readdir(directory); for (const file of files) { const candidate = path.join(directory, file); if ((await stat(candidate)).isFile()) return candidate; }

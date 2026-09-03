@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import type { YtDlpEntry } from './ytdlp-types';
 import { BinaryManager } from '../media/binary-manager';
 import { AppError } from '../utils/app-error';
+import { redditYtDlpArgs } from './reddit';
 
 export class YtDlpAnalyzer {
   constructor(private readonly binaries: BinaryManager) {}
@@ -9,7 +10,7 @@ export class YtDlpAnalyzer {
   async analyze(url: string): Promise<YtDlpEntry> {
     const executable = await this.binaries.resolve('yt-dlp');
     return new Promise((resolve, reject) => {
-      const child = spawn(executable, ['--dump-single-json', '--no-download', '--no-warnings', '--', url], { windowsHide: true, shell: false });
+      const child = spawn(executable, ['--dump-single-json', '--no-download', '--no-warnings', ...redditYtDlpArgs(url), '--', url], { windowsHide: true, shell: false });
       const stdout: Buffer[] = []; const stderr: Buffer[] = [];
       child.stdout.on('data', chunk => stdout.push(Buffer.from(chunk)));
       child.stderr.on('data', chunk => stderr.push(Buffer.from(chunk)));

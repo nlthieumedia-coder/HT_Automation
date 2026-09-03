@@ -44,6 +44,7 @@ export interface DownloadRequest {
 
 export interface DownloadProgress {
   downloadId: string;
+  videoId: string;
   percent: number;
   downloadedBytes?: number;
   totalBytes?: number;

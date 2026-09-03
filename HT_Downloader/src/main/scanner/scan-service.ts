@@ -5,11 +5,16 @@ import { validatePublicUrl } from './url-validator';
 import { deduplicateVideos, normalizeYtDlp } from './normalizer';
 import { YtDlpAnalyzer } from './ytdlp-analyzer';
 import { DirectScanner } from './direct-scanner';
+import { isRedditUrl, normalizeRedditUrl } from './reddit';
+import { RedditScanner } from './reddit-scanner';
 
 export class ScanService {
-  constructor(private readonly analyzer: YtDlpAnalyzer, private readonly directScanner = new DirectScanner()) {}
+  private readonly redditScanner: RedditScanner;
+  constructor(private readonly analyzer: YtDlpAnalyzer, private readonly directScanner = new DirectScanner()) {
+    this.redditScanner = new RedditScanner(directScanner);
+  }
   async scanUrl(input: string): Promise<ScanResult> {
-    const url = validatePublicUrl(input).toString();
+    const url = normalizeRedditUrl(validatePublicUrl(input)).toString();
     logger.info('SCAN_STARTED', { url });
     let pageTitle: string | undefined; let pageUrl = url; let videos = [] as ScanResult['videos']; let ytDlpError: AppError | undefined;
     try {
@@ -22,7 +27,7 @@ export class ScanService {
       logger.warn('YTDLP_SCAN_FALLBACK', { reason: error instanceof AppError ? error.code : 'unknown' });
     }
     if (!videos.length) {
-      const direct = await this.directScanner.scan(url);
+      const direct = isRedditUrl(url) ? await this.redditScanner.scan(url) : await this.directScanner.scan(url);
       videos = direct.videos; pageTitle = direct.title;
     }
     videos = deduplicateVideos(videos);
