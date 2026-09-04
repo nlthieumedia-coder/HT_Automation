@@ -1,5 +1,12 @@
 param([Parameter(Mandatory = $true)][string]$PackageRoot, [switch]$Repair)
 $ErrorActionPreference = "Stop"
+$isAdministrator = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdministrator) {
+    $arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ('"{0}"' -f $PSCommandPath), "-PackageRoot", ('"{0}"' -f $PackageRoot))
+    if ($Repair) { $arguments += "-Repair" }
+    $elevated = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList $arguments
+    exit $elevated.ExitCode
+}
 $packageRootPath = [System.IO.Path]::GetFullPath($PackageRoot)
 $ccx = Get-ChildItem -LiteralPath $packageRootPath -Filter "*.ccx" -File | Select-Object -First 1
 $bridgeSource = Join-Path $packageRootPath "payload\ffmpeg_bridge_server.ps1"
@@ -210,6 +217,14 @@ foreach ($connection in $oldConnections) {
         Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
     }
 }
+# Dừng FFmpeg con còn sót từ Bridge cũ; nếu không, Windows có thể khóa file
+# bin\ffmpeg.exe và làm cập nhật/gỡ cài đặt thất bại.
+$staleFfmpeg = Get-CimInstance Win32_Process -Filter "Name = 'ffmpeg.exe'" -ErrorAction SilentlyContinue | Where-Object {
+    $_.ExecutablePath -and $_.ExecutablePath -match '[\\/]HT_Automation[\\/]'
+}
+foreach ($process in $staleFfmpeg) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+}
 Start-Sleep -Milliseconds 500
 $remainingBridge = Get-NetTCPConnection -State Listen -LocalPort 19888 -ErrorAction SilentlyContinue
 if ($remainingBridge) {
@@ -292,7 +307,7 @@ if (Test-Path -LiteralPath $updaterSource -PathType Leaf) {
     $updaterCommand = @"
 @echo off
 title Cap nhat HT_Automation
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$updaterDir\update.ps1"
+powershell.exe -NoProfile -Command "exit (Start-Process powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""$updaterDir\update.ps1""').ExitCode"
 if errorlevel 1 pause
 "@
     Set-Content -LiteralPath $desktopUpdater -Value $updaterCommand -Encoding ASCII

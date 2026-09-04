@@ -2,6 +2,13 @@ param([string]$Repository = "nlthieumedia-coder/HT_Automation")
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+$isAdministrator = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdministrator) {
+    $arguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ('"{0}"' -f $PSCommandPath), "-Repository", ('"{0}"' -f $Repository))
+    $elevated = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList $arguments
+    exit $elevated.ExitCode
+}
+
 $pluginManifest = Join-Path ${env:CommonProgramFiles} "Adobe\UXP\Plugins\External\com.hieuyt.htautomation\manifest.json"
 $currentVersion = [version]"0.0.0"
 if (Test-Path -LiteralPath $pluginManifest -PathType Leaf) {

@@ -1,4 +1,21 @@
-# HT_Automation 5.7.9
+# HT_Automation 5.7.15
+
+## Tự phát hiện audio track 5.7.15
+
+- Tự đọc toàn bộ audio track trên timeline và chỉ hiển thị những track đang có clip.
+- Hỗ trợ A1, A2, A3, A4 và mọi track cao hơn mà timeline cung cấp.
+- Hiển thị số clip trên từng track và có nút làm mới khi nội dung timeline thay đổi.
+
+## Khắc phục giao diện bộ cài 5.7.11
+
+- Đưa `styles.css` vào danh sách file bắt buộc của gói CCX.
+- Đồng bộ nhãn phiên bản trên giao diện với manifest và FFmpeg Bridge.
+
+## Chọn track Auto Subtitle 5.7.10
+
+- Cho phép chọn và quét track A1, A2 hoặc A3 trước khi nhận dạng.
+- Đồng bộ nút thao tác, thông báo, nhật ký và tên file SRT theo track nguồn.
+- Tự xóa kết quả quét cũ khi đổi track để tránh tạo subtitle nhầm nguồn.
 
 ## Sửa cài đặt UXP 5.7.9
 
@@ -191,10 +208,10 @@ xếp tuần tự lên timeline.
   hiển thị tùy chỉnh.
 - Mốc overlay được nhập bằng số frame hoặc tự động lặp theo khoảng frame đến cuối
   timeline; plugin tự quy đổi theo frame rate của sequence.
-- Auto Subtitle đọc riêng từng audio clip đang bật trên track A1, nhận diện đa ngôn ngữ
+- Auto Subtitle đọc riêng từng audio clip đang bật trên track A1, A2 hoặc A3 do người dùng chọn, nhận diện đa ngôn ngữ
   bằng `whisper.cpp`, giữ đúng khoảng trống/timecode và tạo SRT UTF-8.
 
-## Auto Subtitle từ A1
+## Auto Subtitle từ A1, A2 hoặc A3
 
 Tính năng chạy offline. Bộ cài một-click tự tải từ nguồn chính thức và đặt vào
 `%LOCALAPPDATA%\HT_Automation\Whisper`:
@@ -203,8 +220,8 @@ Tính năng chạy offline. Bộ cài một-click tự tải từ nguồn chính
 - Model multilingual `ggml-small.bin`.
 
 Panel tự lấy hai đường dẫn trên từ Bridge; nút chọn file vẫn có thể dùng để thay model.
-Chọn timeline hiện có, thư mục đầu ra và ngôn ngữ **Tự động theo từng clip**, sau đó bấm
-**Tạo subtitle từ A1**. Plugin tách đúng đoạn In/Out của từng clip A1 thành WAV 16 kHz,
+Chọn timeline hiện có, track nguồn A1/A2/A3, thư mục đầu ra và ngôn ngữ, quét track rồi
+bấm **Tạo subtitle**. Plugin tách đúng đoạn In/Out của từng clip trên track đã chọn thành WAV 16 kHz,
 nhận dạng từng clip và quy đổi kết quả về timecode sequence. File SRT được đưa vào bin
 `Auto Subtitles`; kéo SRT từ bin xuống timeline để Premiere tạo caption track.
 
@@ -220,7 +237,8 @@ nhận dạng từng clip và quy đổi kết quả về timecode sequence. Fil
 
 - Trang Tổng quan với bốn lối tắt và trạng thái Premiere/FFmpeg/Whisper.
 - Điều hướng chính: Tổng quan, Dựng media, Auto Sub, Hậu kỳ và Cài đặt.
-- Ảnh + Audio và Video + Audio được gom thành hai chế độ của Dựng media.
+- Dựng media có ba chế độ: Ảnh + Audio, Video + Audio và Chỉ âm thanh.
+- Chế độ Chỉ âm thanh quét file theo số 1 → N, đưa vào A1 nối tiếp hoặc cách nhau theo số frame tùy chọn.
 - Nhạc nền và Overlay được gom thành hai chế độ của Hậu kỳ.
 - Cấu hình FFmpeg, Whisper CLI và model được chuyển sang Cài đặt.
 - Timeline dùng chung được rút thành một thanh compact; nhật ký thu gọn mặc định.
@@ -228,8 +246,8 @@ nhận dạng từng clip và quy đổi kết quả về timecode sequence. Fil
 
 ## Workflow 4.7
 
-- Auto Subtitle gồm ba bước: Quét A1, thiết lập và tạo/import SRT.
-- Quét A1 hiển thị số clip hợp lệ, tổng thời lượng và số clip bị bỏ qua.
+- Auto Subtitle gồm ba bước: chọn và quét A1/A2/A3, thiết lập và tạo/import SRT.
+- Kết quả quét hiển thị số clip hợp lệ, tổng thời lượng và số clip bị bỏ qua.
 - Validation được hiển thị ngay trong màn hình trước khi chạy Whisper.
 - Thanh tiến trình dùng chung cho dựng ảnh/video, subtitle, nhạc nền và overlay.
 - Kết quả thành công/cảnh báo/lỗi được tóm tắt; lỗi tự mở nhật ký chi tiết.

@@ -308,6 +308,18 @@
     box-shadow: var(--focus-ring);
   }
 
+  .audio-gap-input {
+    flex: 0 0 74px;
+    width: 74px;
+    text-align: right;
+  }
+
+  .input-suffix {
+    flex: 0 0 auto;
+    color: var(--color-text-muted);
+    font-size: 11px;
+  }
+
   /* Buttons */
   .btn {
     box-sizing: border-box;

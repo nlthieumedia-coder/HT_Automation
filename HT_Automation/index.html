@@ -31,7 +31,7 @@
     <div class="app-title">
       <img class="brand-logo" src="./icons/logo_icon.png" alt="HT_Automation Logo" />
       <h2>HT_Automation</h2>
-      <span class="version-tag">v5.7.8</span>
+      <span class="version-tag">v5.7.15</span>
     </div>
     <div class="connection-status">
       <div id="statusDot" class="status-dot"></div>
@@ -80,7 +80,7 @@
     <div class="dashboard-actions">
       <div id="quickBuildImage" role="button" tabindex="0" class="action-tile"><span class="action-title">Dựng từ ảnh</span><span class="action-desc">Ghép ảnh với audio theo số</span></div>
       <div id="quickBuildVideo" role="button" tabindex="0" class="action-tile"><span class="action-title">Dựng từ video</span><span class="action-desc">Khớp video với thời lượng audio</span></div>
-      <div id="quickSubtitle" role="button" tabindex="0" class="action-tile"><span class="action-title">Auto Subtitle</span><span class="action-desc">Tạo phụ đề đa ngôn ngữ từ A1</span></div>
+      <div id="quickSubtitle" role="button" tabindex="0" class="action-tile"><span class="action-title">Auto Subtitle</span><span class="action-desc">Tạo phụ đề đa ngôn ngữ từ A1, A2 hoặc A3</span></div>
       <div id="quickPost" role="button" tabindex="0" class="action-tile"><span class="action-title">Hậu kỳ</span><span class="action-desc">Nhạc nền và video overlay</span></div>
     </div>
     <div class="system-strip"><span>Premiere <b id="homePremiereState">Chưa kiểm tra</b></span><span>FFmpeg <b id="homeFfmpegState">Đang kiểm tra</b></span><span>Whisper <b id="homeWhisperState">Đang kiểm tra</b></span></div>
@@ -91,6 +91,7 @@
     <div class="mode-switch">
       <div id="modeBtnImage" role="button" tabindex="0" class="mode-btn active">Ảnh + Audio</div>
       <div id="modeBtnVideo" role="button" tabindex="0" class="mode-btn">Video + Audio</div>
+      <div id="modeBtnAudio" role="button" tabindex="0" class="mode-btn">Chỉ âm thanh</div>
     </div>
 
   <!-- ================= MODE: ẢNH + ÂM THANH ================= -->
@@ -223,17 +224,73 @@
 
   </div>
 
+  <!-- ================= MODE: CHỈ ÂM THANH ================= -->
+  <div id="tabPanelAudio" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-folder"/></svg>Bước 1: Nguồn dữ liệu</span>
+      </div>
+      <div class="folder-row">
+        <span class="folder-label">Thư mục âm thanh (file được xếp theo số 1 → N)</span>
+        <div class="input-group">
+          <div id="pathAudioOnlyFolder" class="folder-path">Chưa chọn thư mục...</div>
+          <div id="btnPickAudioOnlyFolder" role="button" tabindex="0" class="btn btn-secondary" style="width: 90px; flex-shrink: 0;">
+            <svg class="icon"><use href="#i-folder"/></svg><span>Chọn</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-settings"/></svg>Bước 2: Cách sắp xếp</span>
+      </div>
+      <div class="folder-row">
+        <span class="folder-label">Khoảng cách giữa các audio</span>
+        <div class="input-group">
+          <select id="selectAudioOnlySpacing" class="select-control">
+            <option value="continuous">Nối tiếp (không khoảng trống)</option>
+            <option value="frames">Cách nhau theo số frame</option>
+          </select>
+          <input id="inputAudioOnlyGapFrames" class="text-input audio-gap-input" type="number" min="0" step="1" value="10" disabled />
+          <span class="input-suffix">frame</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-search"/></svg>Bước 3: Quét file</span>
+        <span id="badgeAudioOnlyFiles" class="badge">0 file</span>
+      </div>
+      <div id="btnScanAudioOnly" role="button" tabindex="0" class="btn btn-secondary">
+        <svg class="icon"><use href="#i-refresh"/></svg><span>Quét file</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title"><svg class="icon section-icon"><use href="#i-timeline"/></svg>Bước 4: Dựng timeline</span>
+      </div>
+      <div class="card-subtitle">Audio được đưa vào track A1 theo thứ tự số trong tên file.</div>
+      <div id="btnBuildAudioOnly" role="button" tabindex="0" class="btn btn-primary">
+        <svg class="icon icon-lg"><use href="#i-play"/></svg><span>Thêm âm thanh vào Timeline</span>
+      </div>
+    </div>
+  </div>
+
   </div><!-- /tabPanelBuild -->
 
   <!-- Nhật ký Terminal (dùng chung) -->
   <!-- ================= TAB: AUTO SUBTITLE ================= -->
   <div id="tabPanelSubtitle" class="tab-panel">
     <div class="card">
-      <div class="card-header"><span class="card-title"><svg class="icon section-icon"><use href="#i-captions"/></svg>Auto Subtitle từ track A1</span><span id="badgeSubtitleStatus" class="badge">Chưa chạy</span></div>
+      <div class="card-header"><span class="card-title"><svg class="icon section-icon"><use href="#i-captions"/></svg>Auto Subtitle từ track âm thanh</span><span id="badgeSubtitleStatus" class="badge">Chưa chạy</span></div>
       <div class="card-subtitle">Bộ cài tự tải whisper.cpp và model multilingual. Panel tự nhận đường dẫn; các nút Chọn dùng khi bạn muốn thay thế thủ công.</div>
       <div class="workflow-step">
-        <div class="step-heading"><span class="step-number">1</span><span>Kiểm tra nguồn A1</span></div>
-        <div id="subtitleEmptyState" class="empty-state"><span>Chưa quét track A1 trên timeline hiện tại.</span><div id="btnScanA1" role="button" tabindex="0" class="btn btn-secondary">Quét A1</div></div>
+        <div class="step-heading"><span class="step-number">1</span><span>Kiểm tra nguồn âm thanh</span></div>
+        <div class="folder-row"><span class="folder-label">Track có âm thanh</span><div class="input-group"><select id="selectSubtitleTrack" class="select-control"><option value="1">A1</option></select><div id="btnRefreshSubtitleTracks" role="button" tabindex="0" class="btn btn-secondary" style="width:90px;flex-shrink:0">Làm mới</div></div></div>
+        <div id="subtitleEmptyState" class="empty-state"><span id="subtitleEmptyText">Chưa quét track A1 trên timeline hiện tại.</span><div id="btnScanA1" role="button" tabindex="0" class="btn btn-secondary">Quét A1</div></div>
         <div id="subtitleA1Summary" class="scan-summary" style="display:none">
           <b id="subtitleClipCount" class="scan-count">0 clip</b>
           <span id="subtitleDuration" class="scan-duration">00:00</span>

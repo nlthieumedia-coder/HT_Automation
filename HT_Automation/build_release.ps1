@@ -80,6 +80,7 @@ $requiredFiles = @(
     "manifest.json",
     "index.html",
     "index.js",
+    "styles.css",
     "icons\logo_icon.png",
     "icons\plugin-icon.png",
     "icons\plugin-icon.svg",
@@ -206,9 +207,9 @@ try {
     Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\SUA_CHUA.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
     Copy-Item -LiteralPath (Join-Path $projectDir "cong_cu\cai_dat\CAP_NHAT_MOT_CLICK.bat") -Destination (Join-Path $portableDir "cong_cu\cai_dat")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\install.ps1") -Destination (Join-Path $portableDir "installer")
+    Copy-Item -LiteralPath (Join-Path $projectDir "installer\run_action.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\update.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall.ps1") -Destination (Join-Path $portableDir "installer")
-    Copy-Item -LiteralPath (Join-Path $projectDir "installer\uninstall_bridge.ps1") -Destination (Join-Path $portableDir "installer")
     Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg_bridge_server.ps1") -Destination (Join-Path $portableDir "payload")
     Copy-Item -LiteralPath (Join-Path $projectDir "bin\ffmpeg.exe") -Destination (Join-Path $portableDir "payload")
     Copy-Item -LiteralPath (Join-Path $projectDir "HUONG_DAN_CAI_DAT.txt") -Destination $portableDir
